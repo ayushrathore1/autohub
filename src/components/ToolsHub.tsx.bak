@@ -68,9 +68,8 @@ const ToolsHub: React.FC<ToolsHubProps> = ({ onBack, t, isDark, initialTool = nu
     }, [initialTool]);
 
     const handleBackFromTool = () => {
-        if (!activeTool || openedDirectlyRef.current) {
+        if (openedDirectlyRef.current) {
             onBack();
-            openedDirectlyRef.current = false;
         } else {
             setActiveTool(null);
         }

@@ -1,40 +1,55 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  
+  <!-- SEO & PWA Primary Meta Tags -->
+  <title>Autohub - Smart Auto Parts Billing & Inventory Management App</title>
+  <meta name="title" content="Autohub - Smart Auto Parts Billing & Inventory Management App" />
+  <meta name="description" content="Manage your auto parts shop with Autohub. Features include smart billing, GST calculators, inventory sync, customer khata (udhaar), supplier ledgers, and barcode scanning." />
+  <meta name="keywords" content="auto parts billing software, auto parts inventory app, garage management software, khata app, udhaar book, auto shop invoice maker, GST bill generator" />
+  <meta name="author" content="Autohub" />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+  <link rel="canonical" href="https://autohub.app" />
 
-  <!-- PWA Meta Tags -->
-  <meta name="theme-color" content="#3b82f6" />
+  <!-- PWA Profile -->
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f8fafc" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f172a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="AutoHub" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="application-name" content="AutoHub" />
-  <meta name="description" content="Smart Inventory & Business Management System" />
 
   <!-- Favicon & Icons -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
   <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
   <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
 
-  <!-- Preconnect for faster loading -->
+  <!-- Preconnect for Performance -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://firestore.googleapis.com" />
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
 
-  <!-- Open Graph -->
-  <meta property="og:title" content="AutoHub ERP System" />
-  <meta property="og:description" content="Smart Inventory & Business Management" />
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://autohub.app/" />
+  <meta property="og:title" content="Autohub - Smart Auto Parts Billing & Inventory App" />
+  <meta property="og:description" content="The ultimate garage and auto parts shop management tool. Generate GST bills, manage khata, track stock value, and build digital business cards." />
   <meta property="og:image" content="/icon-512.png" />
-  <meta name="twitter:card" content="summary_large_image" />
+  <meta property="og:site_name" content="Autohub" />
 
-  <title>AutoHub ERP System</title>
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="https://autohub.app/" />
+  <meta property="twitter:title" content="Autohub - Smart Auto Parts Billing & Inventory App" />
+  <meta property="twitter:description" content="The ultimate garage and auto parts shop management tool. Generate GST bills, manage khata, track stock value, and build digital business cards." />
+  <meta property="twitter:image" content="/icon-512.png" />
 </head>
-
-<body>
+<body class="antialiased font-sans webkit-tap-highlight-transparent bg-gray-50 dark:bg-slate-900 text-slate-900 dark:text-white transition-colors duration-200">
+  <noscript>You need to enable JavaScript to run this app.</noscript>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
-
 </html>

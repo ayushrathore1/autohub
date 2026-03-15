@@ -1,12 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     ArrowLeft, ArrowRight as ArrowRightIcon, ArrowLeft as ArrowLeftIcon,
-    Copy, Search, Plus
+    Copy, Search, Plus, ScanBarcode
 } from 'lucide-react';
 import DraggableFAB from '../DraggableFAB';
 import { TranslateBtn } from './TranslateBtn';
 import EntryRow from './EntryRow';
 import VoiceInput from './VoiceInput';
+import { BarcodeScanner } from './tools/BarcodeScanner';
 
 interface ItemsPageProps {
     activePage: any;
@@ -35,6 +36,7 @@ export const ItemsPage: React.FC<ItemsPageProps> = ({
     displayLimit, setDisplayLimit, setIsNewEntryOpen, setEditingEntry,
     setIsCopyModalOpen, updateQtyBuffer, tempChanges
 }) => {
+    const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
 
     const pageViewData = useMemo(() => {
         if (!activePage) return { filteredEntries: [], grandTotal: 0 };
@@ -92,7 +94,25 @@ export const ItemsPage: React.FC<ItemsPageProps> = ({
                         <input className={`w-full pl-8 py-2 rounded border outline-none ${isDark ? 'bg-slate-900 border-slate-600' : 'bg-gray-50 border-gray-300'}`} placeholder={t("Search Item...")} value={pageSearchTerm} onChange={e => setPageSearchTerm(e.target.value)} />
                     </div>
                     <VoiceInput onResult={setPageSearchTerm} isDark={isDark} lang={isHindi ? 'hi-IN' : 'en-IN'} />
+                    <button
+                        onClick={() => setIsBarcodeScannerOpen(true)}
+                        className={`p-2 rounded-full border flex items-center justify-center ${
+                            isDark ? 'bg-slate-700 text-blue-400 border-slate-500 hover:bg-slate-600' : 'bg-blue-100 text-blue-700 border-blue-400 hover:bg-blue-200'
+                        }`}
+                        title="Scan Barcode/QR"
+                    >
+                        <ScanBarcode size={24} />
+                    </button>
                 </div>
+                {isBarcodeScannerOpen && (
+                    <BarcodeScanner 
+                        onScan={(text) => {
+                            setPageSearchTerm(text);
+                            setIsBarcodeScannerOpen(false);
+                        }} 
+                        onClose={() => setIsBarcodeScannerOpen(false)} 
+                    />
+                )}
                 <div className={`flex p-2 text-xs font-bold uppercase ${isDark ? 'bg-slate-700' : 'bg-red-100 text-red-900'}`}>
                     <div className="w-6 pl-1">#</div>
                     <div className="flex-[2]">{t("Car Name")}</div>

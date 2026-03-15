@@ -16,7 +16,7 @@ import {
   Pin, PinOff, PenTool, Highlighter, Circle as CircleIcon, Eraser, Type,
   RefreshCw, RotateCcw, Printer, FilePlus, Send,
   Bold, Italic, Underline, Clock, Package,
-  PackageX, TrendingDown, Tag, Vibrate, Activity
+  PackageX, TrendingDown, Tag, Vibrate, Activity, ScanBarcode, BarChart2
 } from 'lucide-react';
 
 // --- MODULE IMPORTS ---
@@ -34,7 +34,7 @@ import { ItemsPage } from './components/ItemsPage';
 
 import { TranslateBtn } from './components/TranslateBtn';
 import { RecentNotesWidget } from './components/RecentNotesWidget';
-
+import { BarcodeScanner } from './components/tools/BarcodeScanner';
 
 interface SearchResult {
   match: boolean;
@@ -1428,6 +1428,7 @@ function DukanRegister() {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isFaqOpen, setIsFaqOpen] = useState(false);
+  const [isGlobalBarcodeScannerOpen, setIsGlobalBarcodeScannerOpen] = useState(false);
 
 
   const [isNewPageOpen, setIsNewPageOpen] = useState(false);
@@ -2612,11 +2613,104 @@ function DukanRegister() {
         </div>
       </div>
 
-      {/* ?? AI INSIGHTS WIDGET - REMOVED 
-         {(data.settings?.widgets?.aiInsights !== false) && (
-           <AIInsightsWidget data={data} t={t} isDark={isDark} />
-         )}
-      */}
+      {/* ADVANCED BUSINESS DASHBOARD CARDS */}
+      <div className="px-4 pt-4 pb-2">
+        <h2 className={`text-sm font-bold mb-3 px-1 ${isDark ? 'text-slate-400' : 'text-slate-500 uppercase tracking-wider'}`}>
+          {t("Business Hub")}
+        </h2>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Smart Analytics */}
+          <div 
+            onClick={() => { setActiveToolId('analytics'); setPreviousView('generalIndex'); setView('tools'); }}
+            className={`p-4 rounded-3xl border-2 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 flex flex-col justify-between h-32 relative overflow-hidden group
+            ${isDark ? 'bg-gradient-to-br from-indigo-900/50 to-purple-900/50 border-indigo-500/30 hover:border-indigo-400' : 'bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-200/50'}`}
+          >
+            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity ${isDark ? 'bg-indigo-400' : 'bg-indigo-500'}`}></div>
+            <div className="flex justify-between items-start">
+              <div className={`p-2 rounded-2xl ${isDark ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
+                <BarChart2 size={24} strokeWidth={2.5} />
+              </div>
+              <ArrowRight size={18} className={`opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`} />
+            </div>
+            <div>
+              <h3 className={`font-bold text-lg leading-tight mb-1 ${isDark ? 'text-white' : 'text-indigo-950'}`}>Smart<br/>Analytics</h3>
+            </div>
+          </div>
+
+          {/* Customer Khata */}
+          <div 
+            onClick={() => { setActiveToolId('udhaar'); setPreviousView('generalIndex'); setView('tools'); }}
+            className={`p-4 rounded-3xl border-2 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 flex flex-col justify-between h-32 relative overflow-hidden group
+            ${isDark ? 'bg-gradient-to-br from-emerald-900/50 to-teal-900/50 border-emerald-500/30 hover:border-emerald-400' : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200 hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-200/50'}`}
+          >
+            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity ${isDark ? 'bg-emerald-400' : 'bg-emerald-500'}`}></div>
+            <div className="flex justify-between items-start">
+              <div className={`p-2 rounded-2xl ${isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}>
+                <CreditCard size={24} strokeWidth={2.5} />
+              </div>
+              <ArrowRight size={18} className={`opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
+            </div>
+            <div>
+              <h3 className={`font-bold text-lg leading-tight mb-1 ${isDark ? 'text-white' : 'text-emerald-950'}`}>Customer<br/>Khata</h3>
+            </div>
+          </div>
+
+          {/* Supplier Ledger */}
+          <div 
+            onClick={() => { setActiveToolId('supplier'); setPreviousView('generalIndex'); setView('tools'); }}
+            className={`p-4 rounded-3xl border-2 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 flex flex-col justify-between h-32 relative overflow-hidden group
+            ${isDark ? 'bg-gradient-to-br from-orange-900/50 to-amber-900/50 border-orange-500/30 hover:border-orange-400' : 'bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200 hover:border-orange-300 hover:shadow-lg hover:shadow-orange-200/50'}`}
+          >
+            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity ${isDark ? 'bg-orange-400' : 'bg-orange-500'}`}></div>
+            <div className="flex justify-between items-start">
+              <div className={`p-2 rounded-2xl ${isDark ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-100 text-orange-600'}`}>
+                <Package size={24} strokeWidth={2.5} />
+              </div>
+              <ArrowRight size={18} className={`opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0 ${isDark ? 'text-orange-400' : 'text-orange-600'}`} />
+            </div>
+            <div>
+              <h3 className={`font-bold text-lg leading-tight mb-1 ${isDark ? 'text-white' : 'text-orange-950'}`}>Supplier<br/>Ledger</h3>
+            </div>
+          </div>
+
+          {/* Warranty Vault */}
+          <div 
+            onClick={() => { setActiveToolId('warranty'); setPreviousView('generalIndex'); setView('tools'); }}
+            className={`p-4 rounded-3xl border-2 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 flex flex-col justify-between h-32 relative overflow-hidden group
+            ${isDark ? 'bg-gradient-to-br from-rose-900/50 to-pink-900/50 border-rose-500/30 hover:border-rose-400' : 'bg-gradient-to-br from-rose-50 to-pink-50 border-rose-200 hover:border-rose-300 hover:shadow-lg hover:shadow-rose-200/50'}`}
+          >
+            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity ${isDark ? 'bg-rose-400' : 'bg-rose-500'}`}></div>
+            <div className="flex justify-between items-start">
+              <div className={`p-2 rounded-2xl ${isDark ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-100 text-rose-600'}`}>
+                <Shield size={24} strokeWidth={2.5} />
+              </div>
+              <ArrowRight size={18} className={`opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0 ${isDark ? 'text-rose-400' : 'text-rose-600'}`} />
+            </div>
+            <div>
+              <h3 className={`font-bold text-lg leading-tight mb-1 ${isDark ? 'text-white' : 'text-rose-950'}`}>Warranty<br/>Vault</h3>
+            </div>
+          </div>
+          
+          {/* Smart Import (span 2 columns) */}
+          <div 
+            onClick={() => { setActiveToolId('import'); setPreviousView('generalIndex'); setView('tools'); }}
+            className={`col-span-2 p-4 rounded-3xl border-2 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 flex flex-row items-center justify-between relative overflow-hidden group
+            ${isDark ? 'bg-gradient-to-r from-cyan-900/50 to-blue-900/50 border-cyan-500/30 hover:border-cyan-400' : 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200 hover:border-cyan-300 hover:shadow-lg hover:shadow-cyan-200/50'}`}
+          >
+            <div className={`absolute right-0 top-0 w-32 h-32 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity ${isDark ? 'bg-cyan-400' : 'bg-cyan-500'}`}></div>
+            <div className="flex items-center gap-4">
+              <div className={`p-3 rounded-2xl ${isDark ? 'bg-cyan-500/20 text-cyan-400' : 'bg-cyan-100 text-cyan-600'}`}>
+                <ScanBarcode size={26} strokeWidth={2.5} />
+              </div>
+              <div>
+                <h3 className={`font-bold text-lg leading-tight ${isDark ? 'text-white' : 'text-cyan-950'}`}>Smart Data Import</h3>
+                <p className={`text-xs ${isDark ? 'text-cyan-200' : 'text-cyan-700'}`}>Add inventory from Excel/CSV</p>
+              </div>
+            </div>
+            <ArrowRight size={20} className={`opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0 ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`} />
+          </div>
+        </div>
+      </div>
 
       {/* ?? SALES PREDICTION WIDGET */}
       {data.settings?.aiPredictions && (typeof data.settings?.widgets !== 'boolean' ? data.settings?.widgets?.predictions !== false : true) && (
@@ -2759,8 +2853,28 @@ function DukanRegister() {
               {stockSearchTerm && <button onClick={() => setStockSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X size={16} /></button>}
             </div>
             <VoiceInput onResult={setStockSearchTerm} isDark={isDark} lang={isHindi ? 'hi-IN' : 'en-IN'} />
+            <button
+                onClick={() => setIsGlobalBarcodeScannerOpen(true)}
+                className={`p-3 rounded-xl border flex items-center justify-center ${
+                    isDark ? 'bg-slate-800 text-blue-400 border-slate-600 hover:bg-slate-700' : 'bg-white text-blue-600 border-gray-300 hover:bg-gray-50'
+                }`}
+                title="Scan Barcode/QR"
+            >
+                <ScanBarcode size={24} />
+            </button>
           </div>
         </div>
+        
+        {isGlobalBarcodeScannerOpen && (
+            <BarcodeScanner 
+                onScan={(text) => {
+                    setStockSearchTerm(text);
+                    setIsGlobalBarcodeScannerOpen(false);
+                }} 
+                onClose={() => setIsGlobalBarcodeScannerOpen(false)} 
+            />
+        )}
+        
         <div className="space-y-3">
           {!stockSearchTerm && (
             <div className="flex flex-col items-center justify-center mt-20 opacity-40">
@@ -3193,7 +3307,7 @@ function DukanRegister() {
 
       {/* Bills view removed */}
 
-      {view === 'tools' && <ToolsHub onBack={() => { setView(previousView || 'settings'); setInitialNoteId(null); }} t={t} isDark={isDark} initialTool={activeToolId} initialNoteId={initialNoteId} pinnedTools={data.settings.pinnedTools || []} onTogglePin={handleTogglePin} shopDetails={data.settings} data={data} />}
+      {view === 'tools' && <ToolsHub onBack={() => { setView(previousView || 'settings'); setInitialNoteId(null); setActiveToolId(null); }} t={t} isDark={isDark} initialTool={activeToolId} initialNoteId={initialNoteId} pinnedTools={data.settings.pinnedTools || []} onTogglePin={handleTogglePin} shopDetails={data.settings} data={data} />}
 
 
       {renderSaveButton()}
@@ -3458,4 +3572,5 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
 

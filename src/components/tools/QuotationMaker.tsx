@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { FileText, FileCheck, MessageCircle, Download, Trash2, Plus, Search, X } from 'lucide-react';
+﻿import React, { useState, useEffect } from 'react';
+import { FileText, FileCheck, MessageCircle, Download, Trash2, Plus, Search, X, ArrowLeft } from 'lucide-react';
 import { QuotationSchema } from '../../schemas';
 
 interface QuotationMakerProps {
+    onBack?: () => void;
     t: (key: string) => string;
     shopDetails: any;
     data: any;
     isDark: boolean;
 }
 
-const QuotationMaker: React.FC<QuotationMakerProps> = ({ t, shopDetails, data, isDark }) => {
+const QuotationMaker: React.FC<QuotationMakerProps> = ({ t, shopDetails, data, isDark, onBack }) => {
     // State
     const [quoteCust, setQuoteCust] = useState({ name: '', phone: '', address: '' });
     const [quoteItems, setQuoteItems] = useState<any[]>([]);
@@ -23,7 +24,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({ t, shopDetails, data, i
     const [quoteSearch, setQuoteSearch] = useState('');
 
     // Shared Styles
-    const cardClass = "bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 transition-all";
+    const commonInputClass = `w-full ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'} border rounded-xl p-3.5 font-medium outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all`;
 
     // Load Draft
     useEffect(() => {
@@ -56,239 +57,403 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({ t, shopDetails, data, i
         return () => clearTimeout(timeout);
     }, [quoteCust, quoteItems, quoteDiscount, quoteSettings]);
 
-    // Logic
-    const addToQuote = (item: any) => {
-        setQuoteItems([...quoteItems, {
-            id: Date.now(),
-            name: item.itemName || "Custom Item",
-            qty: 1,
-            rate: item.sellPrice || 0,
-            desc: ''
-        }]);
-        setShowItemSelector(false);
-        setQuoteSearch('');
+    const quoteSubtotal = quoteItems.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    const quoteTotal = quoteSubtotal - quoteDiscount;
+
+    const generatePdfHtml = () => {
+        return `
+            <html>
+                <head>
+                    <title>Quotation - ${quoteCust.name}</title>
+                    <style>
+                        body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; }
+                        .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
+                        .shop-name { font-size: 28px; font-weight: 900; color: #1e3a8a; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
+                        .shop-tagline { font-size: 14px; color: #64748b; margin-top: 5px; }
+                        .row { display: flex; justify-content: space-between; margin-bottom: 30px; }
+                        .box { background: #f8fafc; padding: 15px; border-radius: 8px; width: 45%; }
+                        .box-title { font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 5px; }
+                        .box-value { font-size: 16px; font-weight: 600; color: #1e293b; margin: 0; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; border-radius: 8px; overflow: hidden; box-shadow: 0 0 0 1px #e2e8f0; }
+                        th, td { padding: 12px 15px; text-align: left; }
+                        th { background: #f1f5f9; color: #475569; font-weight: 600; font-size: 13px; text-transform: uppercase; }
+                        td { border-top: 1px solid #e2e8f0; font-size: 14px; }
+                        .totals-container { display: flex; justify-content: flex-end; }
+                        .totals { background: #f8fafc; padding: 20px; border-radius: 8px; width: 300px; }
+                        .tot-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+                        .tot-final { display: flex; justify-content: space-between; margin-top: 15px; padding-top: 15px; border-top: 2px dashed #cbd5e1; font-size: 20px; font-weight: 800; color: #2563eb; }
+                        .terms { margin-top: 50px; font-size: 12px; color: #64748b; }
+                        .terms-title { font-weight: 700; color: #475569; margin-bottom: 5px; }
+                        .footer { margin-top: 50px; text-align: right; }
+                        .sign-line { width: 150px; border-bottom: 1px solid #cbd5e1; display: inline-block; margin-bottom: 5px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1 class="shop-name">${shopDetails.name || 'AUTO PARTS STORE'}</h1>
+                        <div class="shop-tagline">${quoteSettings.shopAddress || shopDetails.address || 'Your Trusted Auto Parts Partner'}</div>
+                    </div>
+                    
+                    <div style="text-align: center; font-size: 24px; font-weight: 800; margin-bottom: 30px; letter-spacing: 2px;">ESTIMATE / QUOTATION</div>
+                    
+                    <div class="row">
+                        <div class="box">
+                            <div class="box-title">Quotation To</div>
+                            <h3 class="box-value">${quoteCust.name || 'Cash Customer'}</h3>
+                            <div style="font-size: 14px; color: #475569; margin-top: 5px;">${quoteCust.phone}</div>
+                            ${quoteCust.address ? `<div style="font-size: 14px; color: #475569; margin-top: 2px;">${quoteCust.address}</div>` : ''}
+                        </div>
+                        <div class="box" style="text-align: right;">
+                            <div class="box-title">Quotation details</div>
+                            <div style="margin-bottom: 5px;"><strong>Date:</strong> ${new Date(quoteDate).toLocaleDateString('en-IN')}</div>
+                            <div><strong>Valid Until:</strong> ${new Date(new Date(quoteDate).getTime() + (7 * 24 * 60 * 60 * 1000)).toLocaleDateString('en-IN')}</div>
+                        </div>
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Item Description</th>
+                                <th style="text-align: center;">Qty</th>
+                                <th style="text-align: right;">Rate (₹)</th>
+                                <th style="text-align: right;">Amount (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${quoteItems.map((item, i) => `
+                                <tr>
+                                    <td style="color: #64748b;">${i + 1}</td>
+                                    <td style="font-weight: 500;">
+                                        ${item.name}
+                                        ${item.brand ? `<br><span style="font-size: 11px; color: #64748b;">Brand: ${item.brand}</span>` : ''}
+                                    </td>
+                                    <td style="text-align: center;">${item.quantity}</td>
+                                    <td style="text-align: right;">${item.price.toFixed(2)}</td>
+                                    <td style="text-align: right; font-weight: 600;">${(item.price * item.quantity).toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    
+                    <div class="totals-container">
+                        <div class="totals">
+                            <div class="tot-row">
+                                <span>Subtotal</span>
+                                <strong>₹${quoteSubtotal.toFixed(2)}</strong>
+                            </div>
+                            <div class="tot-row" style="color: #ef4444;">
+                                <span>Discount</span>
+                                <strong>- ₹${quoteDiscount.toFixed(2)}</strong>
+                            </div>
+                            <div class="tot-final">
+                                <span>Total Amount</span>
+                                <span>₹${quoteTotal.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="terms">
+                        <div class="terms-title">Terms & Conditions</div>
+                        ${quoteSettings.terms.split('\n').map(t => `<div style="margin-bottom: 4px;">${t}</div>`).join('')}
+                    </div>
+
+                    <div class="footer">
+                        <div class="sign-line"></div>
+                        <div style="font-size: 12px; color: #64748b; font-weight: bold;">Authorized Signatory</div>
+                    </div>
+                </body>
+            </html>
+        `;
     };
 
-    const updateQuoteItem = (id: number, field: string, val: any) => {
-        setQuoteItems(quoteItems.map(i => i.id === id ? { ...i, [field]: val } : i));
-    };
+    const handleWhatsAppShare = () => {
+        let msg = `*Quotation from ${shopDetails.name}*\nDate: ${new Date(quoteDate).toLocaleDateString('en-IN')}\n\n`;
+        msg += `*Customer:* ${quoteCust.name || 'Sir/Madam'}\n\n`;
+        msg += `*Items:*\n`;
+        quoteItems.forEach((item, i) => {
+            msg += `${i + 1}. ${item.name} x ${item.quantity} - ₹${item.price * item.quantity}\n`;
+        });
+        msg += `\n*Subtotal:* ₹${quoteSubtotal}`;
+        if (quoteDiscount > 0) msg += `\n*Discount:* ₹${quoteDiscount}`;
+        msg += `\n*Total Estimate:* ₹${quoteTotal}\n\n`;
+        msg += `Thank you for your inquiry!`;
 
-    const removeQuoteItem = (id: number) => setQuoteItems(quoteItems.filter(i => i.id !== id));
-
-    const quoteSubTotal = quoteItems.reduce((acc, i) => acc + (i.qty * i.rate), 0);
-    const quoteFinalTotal = Math.max(0, quoteSubTotal - quoteDiscount);
-
-    // Function to Validate and Print
-    const handlePrint = () => {
-        const payload = {
-            cust: quoteCust,
-            items: quoteItems,
-            discount: quoteDiscount || 0
-        };
-        const result = QuotationSchema.safeParse(payload);
-        if (!result.success) {
-            const errors: Record<string, string> = {};
-            result.error.issues.forEach(issue => {
-                errors[issue.path.join('.')] = issue.message;
-            });
-            setValidationErrors(errors);
-            alert("Please fix errors: " + result.error.issues.map(i => i.message).join(', '));
-            return;
-        }
-        setValidationErrors({});
-        window.print();
-    };
-
-    // Updated Share Function
-    const shareViaWhatsapp = () => {
-        const payload = {
-            cust: quoteCust,
-            items: quoteItems,
-            discount: quoteDiscount || 0
-        };
-        const result = QuotationSchema.safeParse(payload);
-        if (!result.success) {
-            alert("Please complete the quotation before sharing. " + result.error.issues[0].message);
-            return;
-        }
-
-        const separator = "━━━━━━━━━━━━━━━━━━";
-        const text = `*📄 QUOTATION*` +
-            `\n*${shopDetails.shopName?.toUpperCase() || "MY SHOP"}*` +
-            `\n_${shopDetails.address || ''}_` +
-            `\n📞 ${shopDetails.mobile || ''}\n` +
-            `\n${separator}` +
-            `\n📅 *Date:* ${new Date(quoteDate).toLocaleDateString()}` +
-            `\n👤 *To:* ${quoteCust.name} (${quoteCust.phone})` +
-            `\n${separator}\n` +
-            `\n*📦 ITEMS:*` +
-            quoteItems.map((i, idx) => `\n${idx + 1}. *${i.name}*` + (i.desc ? `\n   _${i.desc}_` : '') + `\n   ${i.qty} x ₹${i.rate} = *₹${(i.qty * i.rate).toLocaleString()}*`).join('') +
-            `\n\n${separator}` +
-            `\n💰 *Subtotal: ₹${quoteSubTotal.toLocaleString()}*` +
-            (quoteDiscount > 0 ? `\n🏷️ *Discount: -₹${quoteDiscount.toLocaleString()}*` : '') +
-            `\n💵 *TOTAL PAYABLE: ₹${quoteFinalTotal.toLocaleString()}*` +
-            `\n${separator}` +
-            `\n\n📝 _Terms: ${quoteSettings.terms.split('\n')[0]}..._` +
-            `\n\nGenerated by Autonex`;
-        const url = `https://wa.me/${quoteCust.phone}?text=${encodeURIComponent(text)}`;
+        const encodedMsg = encodeURIComponent(msg);
+        let url = quoteCust.phone && quoteCust.phone.length >= 10
+            ? `https://wa.me/91${quoteCust.phone.replace(/\D/g, '').slice(-10)}?text=${encodedMsg}`
+            : `https://wa.me/?text=${encodedMsg}`;
         window.open(url, '_blank');
     };
 
+    const handlePrint = () => {
+        const win = window.open('', '_blank');
+        if (win) {
+            win.document.write(generatePdfHtml());
+            win.document.close();
+            setTimeout(() => {
+                win.print();
+            }, 500);
+        }
+    };
+
+    const clearQuotation = () => {
+        if (window.confirm("Clear all items and start fresh?")) {
+            setQuoteItems([]);
+            setQuoteCust({ name: '', phone: '', address: '' });
+            setQuoteDiscount(0);
+            localStorage.removeItem('quote_draft');
+        }
+    };
+
     return (
-        <div className={`${cardClass} overflow-y-auto relative bg-gray-50 dark:bg-slate-900 !p-0 md:!p-6 border-0 md:border`}>
-            {/* TOOLBAR */}
-            <div className="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-slate-800 z-10 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
-                <div>
-                    <h3 className="font-bold text-xl flex items-center gap-2 text-indigo-600">
-                        <FileText size={24} /> {t("Quotation Maker")}
-                    </h3>
+        <div className={`h-full flex flex-col ${isDark ? 'bg-slate-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+            {/* Header */}
+            <div className={`flex items-center justify-between p-4 border-b shrink-0 ${isDark ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+                <div className="flex items-center gap-3">
+                    {onBack && (
+                        <button onClick={onBack} className={`p-2 rounded-full transition-colors ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-100'}`}>
+                            <ArrowLeft size={22} className={isDark ? 'text-gray-300' : 'text-gray-600'} />
+                        </button>
+                    )}
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                        <FileText className="text-blue-500" size={24} />
+                        Quotation Maker
+                    </h2>
                 </div>
                 <div className="flex gap-2">
-                    <button aria-label={t("Start New Quotation")} onClick={() => {
-                        if (confirm("Start new quotation? Current draft will be cleared.")) {
-                            setQuoteItems([]);
-                            setQuoteCust({ name: '', phone: '', address: '' });
-                            setQuoteDiscount(0);
-                            localStorage.removeItem('quote_draft');
-                        }
-                    }} className="p-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-bold text-sm">
-                        <FileCheck size={18} /> <span className="hidden sm:inline">New</span>
-                    </button>
-                    <button aria-label={t("Share via WhatsApp")} onClick={shareViaWhatsapp} className="p-2.5 bg-green-500 text-white rounded-lg hover:bg-green-600 shadow-md flex items-center gap-1 font-bold text-sm">
-                        <MessageCircle size={18} /> <span className="hidden sm:inline">WhatsApp</span>
-                    </button>
-                    <button aria-label={t("Print Quotation")} onClick={handlePrint} className="p-2.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 flex items-center gap-1 font-bold text-sm">
-                        <Download size={18} /> <span className="hidden sm:inline">{t("Print")}</span>
-                    </button>
+                     <button onClick={clearQuotation} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-full transition-colors" title="Clear All">
+                         <Trash2 size={20} />
+                     </button>
                 </div>
             </div>
 
-            {/* ENTERPRISE PAPER LAYOUT */}
-            <div id="print-area" className="bg-white text-black p-3 md:p-6 rounded-none md:rounded-xl shadow-none md:shadow-lg border-0 md:border border-gray-200 min-h-[600px] flex flex-col relative max-w-4xl mx-auto">
-
-                {/* BRANDING HEADER */}
-                <div className="flex justify-between items-start border-b-4 border-indigo-600 pb-4 mb-6">
-                    <div>
-                        <h1 className="text-3xl font-black uppercase text-indigo-800 tracking-wide">{shopDetails.shopName || "MY SHOP"}</h1>
-                        <input className="text-xs text-gray-500 w-full outline-none bg-transparent placeholder-gray-300 mt-1" placeholder="Add Shop Address & Mobile..." value={quoteSettings.shopAddress} onChange={e => setQuoteSettings({ ...quoteSettings, shopAddress: e.target.value })} />
-                    </div>
-                    <div className="text-right">
-                        <h2 className="text-lg font-bold text-gray-400 uppercase tracking-widest">{t("QUOTATION")}</h2>
-                        <p className="font-bold text-indigo-600">#{Date.now().toString().slice(-6)}</p>
-                        <input type="date" className="text-xs text-right bg-transparent outline-none font-medium mt-1" value={quoteDate} onChange={e => setQuoteDate(e.target.value)} />
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                {/* Customer Details */}
+                <div className={`p-5 rounded-2xl ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-gray-100 shadow-sm'}`}>
+                    <h4 className={`text-xs font-bold uppercase tracking-widest mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Customer Details</h4>
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <input
+                                placeholder="Customer Name"
+                                className={commonInputClass}
+                                value={quoteCust.name}
+                                onChange={e => setQuoteCust({ ...quoteCust, name: e.target.value })}
+                            />
+                            <input
+                                placeholder="Phone Number"
+                                type="tel"
+                                className={commonInputClass}
+                                value={quoteCust.phone}
+                                onChange={e => setQuoteCust({ ...quoteCust, phone: e.target.value })}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <input
+                                type="date"
+                                className={commonInputClass}
+                                value={quoteDate}
+                                onChange={e => setQuoteDate(e.target.value)}
+                            />
+                            <input
+                                placeholder="Locality / Address"
+                                className={commonInputClass}
+                                value={quoteCust.address}
+                                onChange={e => setQuoteCust({ ...quoteCust, address: e.target.value })}
+                            />
+                        </div>
                     </div>
                 </div>
 
-                {/* CUSTOMER SECTION */}
-                <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-100">
-                    <p className="text-xs font-bold text-gray-400 uppercase mb-2">QUOTATION FOR:</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input className="bg-transparent border-b border-gray-300 p-1 font-bold outline-none focus:border-indigo-500 text-lg w-full" placeholder="Customer Name *" value={quoteCust.name} onChange={e => setQuoteCust({ ...quoteCust, name: e.target.value })} />
-                        <input className="bg-transparent border-b border-gray-300 p-1 outline-none focus:border-indigo-500 w-full" placeholder="Mobile Number" type="tel" value={quoteCust.phone} onChange={e => setQuoteCust({ ...quoteCust, phone: e.target.value })} />
-                        <input className="bg-transparent border-b border-gray-300 p-1 outline-none focus:border-indigo-500 w-full md:col-span-2 text-sm" placeholder="Billing Address (Optional)" value={quoteCust.address} onChange={e => setQuoteCust({ ...quoteCust, address: e.target.value })} />
+                {/* Items */}
+                <div className={`p-5 rounded-2xl ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-gray-100 shadow-sm'}`}>
+                    <div className="flex justify-between items-center mb-3">
+                        <h4 className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Items ({quoteItems.length})</h4>
+                        <button
+                            onClick={() => setShowItemSelector(true)}
+                            className="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1 hover:bg-blue-200 transition-colors"
+                        >
+                            <Plus size={16} /> Add Item
+                        </button>
                     </div>
-                </div>
 
-                {/* ITEMS TABLE */}
-                <div className="flex-1">
-                    <div className="grid grid-cols-12 gap-2 bg-indigo-600 text-white p-2 text-xs font-bold uppercase rounded-t-lg">
-                        <div className="col-span-1 text-center">#</div>
-                        <div className="col-span-6">Item Description</div>
+                    <div className="hidden md:grid grid-cols-12 gap-2 text-xs font-bold text-gray-500 pb-2 border-b dark:border-slate-700 mb-2">
+                        <div className="col-span-5">Item</div>
                         <div className="col-span-2 text-center">Qty</div>
-                        <div className="col-span-3 text-right">Amount</div>
+                        <div className="col-span-2 text-right">Rate</div>
+                        <div className="col-span-2 text-right">Amount</div>
+                        <div className="col-span-1"></div>
                     </div>
 
-                    <div className="border-x border-b border-gray-200 rounded-b-lg mb-6">
-                        {quoteItems.map((item, idx) => (
-                            <div key={item.id} className="grid grid-cols-12 gap-2 p-3 border-b last:border-0 hover:bg-gray-50 items-center text-sm">
-                                <div className="col-span-1 text-center font-bold text-gray-400">{idx + 1}</div>
-                                <div className="col-span-6">
-                                    <input className="w-full font-bold outline-none bg-transparent" value={item.name} onChange={e => updateQuoteItem(item.id, 'name', e.target.value)} />
-                                    <input className="w-full text-xs text-gray-500 outline-none bg-transparent" placeholder="Add description..." value={item.desc} onChange={e => updateQuoteItem(item.id, 'desc', e.target.value)} />
-                                </div>
-                                <div className="col-span-2 flex items-center justify-center px-1">
-                                    <input className="w-full text-center border border-gray-300 rounded p-1 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none bg-white font-bold text-sm placeholder-gray-200" placeholder="" type="number" value={item.qty === 0 ? '' : item.qty} onChange={e => updateQuoteItem(item.id, 'qty', parseInt(e.target.value) || 0)} />
-                                </div>
-                                <div className="col-span-3 flex items-center justify-end gap-1 px-1">
-                                    <div className="flex flex-col items-end w-full">
-                                        <span className="font-bold text-sm">₹{(item.qty * item.rate).toLocaleString()}</span>
-                                        <input className="text-xs text-right text-gray-600 outline-none w-full border border-gray-300 rounded p-1 bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none mt-1 placeholder-gray-200" placeholder="Rate" value={item.rate === 0 ? '' : item.rate} onChange={e => updateQuoteItem(item.id, 'rate', parseFloat(e.target.value) || 0)} type="number" />
+                    {quoteItems.length === 0 ? (
+                        <div className="text-center py-6">
+                            <p className="text-gray-400 text-sm font-medium">No items added to estimate.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3 mt-2">
+                            {quoteItems.map((item, idx) => (
+                                <div key={idx} className={`p-3 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-gray-50 border-gray-200'} md:border-none md:bg-transparent md:p-0 md:flex md:items-center`}>
+                                    <div className="flex justify-between md:hidden mb-2">
+                                        <span className="font-bold">{item.name}</span>
+                                        <button onClick={() => {
+                                            const newItems = [...quoteItems];
+                                            newItems.splice(idx, 1);
+                                            setQuoteItems(newItems);
+                                        }} className="text-red-400 p-1"><Trash2 size={16} /></button>
                                     </div>
-                                    <button aria-label={t("Remove Item")} onClick={() => removeQuoteItem(item.id)} className="text-red-300 hover:text-red-500 print:hidden"><Trash2 size={14} /></button>
+                                    <div className="grid grid-cols-12 gap-2 items-center">
+                                        <div className="col-span-12 md:col-span-5 hidden md:block font-medium truncate" title={item.name}>{item.name}</div>
+                                        <div className="col-span-4 md:col-span-2 text-center">
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                className={`w-full text-center p-2 rounded-lg border outline-none font-bold ${isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-300'} focus:border-blue-500`}
+                                                value={item.quantity}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value) || 0;
+                                                    const newItems = [...quoteItems];
+                                                    newItems[idx].quantity = val;
+                                                    setQuoteItems(newItems);
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="col-span-4 md:col-span-2">
+                                            <input
+                                                type="number"
+                                                className={`w-full text-right p-2 rounded-lg border outline-none font-bold ${isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-300'} focus:border-blue-500`}
+                                                value={item.price}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value) || 0;
+                                                    const newItems = [...quoteItems];
+                                                    newItems[idx].price = val;
+                                                    setQuoteItems(newItems);
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="col-span-4 md:col-span-2 text-right font-black pt-2 md:pt-0">
+                                            ₹{(item.price * item.quantity).toFixed(2)}
+                                        </div>
+                                        <div className="hidden md:block col-span-1 text-right">
+                                            <button onClick={() => {
+                                                const newItems = [...quoteItems];
+                                                newItems.splice(idx, 1);
+                                                setQuoteItems(newItems);
+                                            }} className="text-red-400 hover:text-red-500 p-1"><X size={18}/></button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-
-                        {/* ADD ITEM BUTTON (Print Hidden) */}
-                        <div className="p-3 print:hidden">
-                            <button aria-label={t("Add Product")} onClick={() => setShowItemSelector(true)} className="w-full py-3 border-2 border-dashed border-indigo-200 text-indigo-500 rounded-lg hover:bg-indigo-50 font-bold flex items-center justify-center gap-2">
-                                <Plus size={18} /> {t("Add Product")}
-                            </button>
+                            ))}
                         </div>
-                    </div>
+                    )}
                 </div>
 
-                {/* FOOTER & TOTALS */}
-                <div className="flex justify-end mb-8">
-                    <div className="w-1/2 md:w-1/3">
-                        <div className="flex justify-between py-2 border-b border-gray-200 text-sm">
-                            <span className="text-gray-500">Subtotal</span>
-                            <span className="font-bold">₹{quoteSubTotal.toLocaleString()}</span>
+                {/* Totals */}
+                <div className={`p-5 rounded-2xl ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-gray-100 shadow-sm'}`}>
+                    <div className="space-y-3 pb-4 border-b border-dashed dark:border-slate-700">
+                        <div className="flex justify-between items-center">
+                            <span className={`font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Subtotal</span>
+                            <span className="font-bold text-lg">₹{quoteSubtotal.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between py-2 border-b border-gray-200 text-sm items-center">
-                            <span className="text-gray-500 text-xs">Discount (₹)</span>
-                            <input className="w-20 text-right font-bold text-red-500 outline-none border-b border-dashed border-red-200 focus:border-red-500 bg-transparent" placeholder="0" type="number" value={quoteDiscount === 0 ? '' : quoteDiscount} onChange={e => setQuoteDiscount(parseFloat(e.target.value) || 0)} />
-                        </div>
-                        <div className="flex justify-between py-3 border-b-2 border-indigo-600 text-xl font-black text-indigo-900 bg-indigo-50 px-2 mt-2 rounded">
-                            <span>TOTAL</span>
-                            <span>₹{quoteFinalTotal.toLocaleString()}</span>
+                        <div className="flex justify-between items-center text-red-500">
+                            <span className="font-medium">Discount (₹)</span>
+                            <input
+                                type="number"
+                                className={`w-28 p-2 rounded-lg border text-right font-bold outline-none ${isDark ? 'bg-slate-900 border-red-500/30' : 'bg-red-50/50 border-red-200'} focus:border-red-500`}
+                                value={quoteDiscount || ''}
+                                placeholder="0"
+                                onChange={e => setQuoteDiscount(parseFloat(e.target.value) || 0)}
+                            />
                         </div>
                     </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-8 mt-auto pt-8 border-t border-gray-200">
-                    <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase mb-2">Terms & Conditions</p>
-                        <textarea className="w-full text-xs text-gray-600 bg-transparent resize-none h-20 outline-none border border-transparent hover:border-gray-200 rounded p-1" value={quoteSettings.terms} onChange={e => setQuoteSettings({ ...quoteSettings, terms: e.target.value })} />
-                    </div>
-                    <div className="text-right flex flex-col justify-end items-end">
-                        <div className="h-16 w-32 border-b border-gray-300 mb-2"></div>
-                        <p className="text-xs font-bold text-gray-500 uppercase">{t("Authorized Signatory")}</p>
-                        <p className="text-[10px] text-gray-400">{shopDetails.shopName}</p>
+                    <div className="flex justify-between items-center pt-4">
+                        <span className={`font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Total Estimate</span>
+                        <span className="text-3xl font-black text-blue-500">₹{quoteTotal.toFixed(2)}</span>
                     </div>
                 </div>
             </div>
 
-            {/* MOBILE OPTIMIZED ITEM SELECTOR */}
+            {/* Bottom Actions */}
+            <div className={`p-4 border-t shrink-0 grid grid-cols-2 gap-3 ${isDark ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+                <button
+                    onClick={handlePrint}
+                    className="py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 border-2 border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all focus:scale-95"
+                >
+                    <Download size={20} /> Print / PDF
+                </button>
+                <button
+                    onClick={handleWhatsAppShare}
+                    className="py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 bg-[#25D366] text-white hover:brightness-105 shadow-lg shadow-[#25D366]/30 transition-all focus:scale-95"
+                >
+                    <MessageCircle size={20} /> Send on WA
+                </button>
+            </div>
+
+            {/* Item Selector Modal */}
             {showItemSelector && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-white dark:bg-slate-900 w-full sm:max-w-md h-[85vh] sm:h-[600px] rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10">
-                        <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-900">
-                            <h3 className="font-bold text-lg">{t("Select Product")}</h3>
-                            <button onClick={() => setShowItemSelector(false)} className="p-2 bg-gray-200 dark:bg-slate-800 rounded-full hover:bg-gray-300"><X size={20} /></button>
+                <div className="fixed inset-0 bg-black/60 z-[70] flex flex-col justify-end sm:justify-center sm:p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className={`w-full sm:max-w-md h-[70vh] sm:h-[600px] rounded-t-3xl sm:rounded-3xl flex flex-col ${isDark ? 'bg-slate-900' : 'bg-white'} shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95`}>
+                        <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center shrink-0">
+                            <h3 className="font-bold text-lg">Add Items to Estimate</h3>
+                            <button onClick={() => setShowItemSelector(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800"><X size={20} /></button>
                         </div>
-                        <div className="p-3 bg-white dark:bg-slate-900">
+                        <div className="p-4 shrink-0">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                <input autoFocus className="w-full pl-10 p-3.5 rounded-xl border-2 border-indigo-100 focus:border-indigo-500 outline-none bg-gray-50 dark:bg-slate-800 dark:border-slate-700 text-lg" placeholder={t("Search by name...")} value={quoteSearch} onChange={e => setQuoteSearch(e.target.value)} />
+                                <input
+                                    className={commonInputClass.replace('p-3.5', 'p-3 pl-10')}
+                                    placeholder="Search inventory..."
+                                    value={quoteSearch}
+                                    onChange={e => setQuoteSearch(e.target.value)}
+                                    autoFocus
+                                />
                             </div>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50 dark:bg-slate-950">
-                            <button onClick={() => addToQuote({ itemName: '', sellPrice: 0 })} className="w-full p-4 rounded-xl bg-indigo-50 dark:bg-slate-800 border-indigo-200 text-indigo-700 font-bold flex items-center justify-between shadow-sm active:scale-95 transition-all mb-2">
-                                <div className="flex items-center gap-3"><Plus size={20} /> <span>{t("Add Custom Item")}</span></div>
-                            </button>
-
-                            {(data?.pages || [])
-                                .filter((p: any) => p.itemName.toLowerCase().includes(quoteSearch.toLowerCase()))
-                                .map((p: any) => (
-                                    <button key={p.id} onClick={() => addToQuote(p)} className="w-full text-left p-4 rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-slate-700 active:scale-95 transition-all flex justify-between items-center group">
-                                        <div>
-                                            <span className="font-bold text-lg block group-hover:text-indigo-600 transition-colors">{p.itemName}</span>
-                                            <span className="text-xs text-gray-400">Inventory Item</span>
-                                        </div>
-                                        <span className="text-green-600 font-black text-lg bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-lg">₹{p.sellPrice}</span>
-                                    </button>
-                                ))}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                            {data?.items?.filter((item: any) =>
+                                item.name.toLowerCase().includes(quoteSearch.toLowerCase()) ||
+                                (item.barcodes && item.barcodes.some((b: string) => b.includes(quoteSearch)))
+                            ).map((item: any) => (
+                                <div
+                                    key={item.id}
+                                    className={`p-3 rounded-xl border flex justify-between items-center cursor-pointer transition-colors ${isDark ? 'border-slate-700 hover:bg-slate-800' : 'border-gray-200 hover:bg-blue-50 hover:border-blue-200'}`}
+                                    onClick={() => {
+                                        setQuoteItems([...quoteItems, {
+                                            id: item.id,
+                                            name: item.name,
+                                            price: item.price,
+                                            quantity: 1,
+                                            brand: item.brand
+                                        }]);
+                                        setShowItemSelector(false);
+                                        setQuoteSearch('');
+                                    }}
+                                >
+                                    <div>
+                                        <p className="font-bold">{item.name}</p>
+                                        <p className="text-xs text-gray-500">Stock: {item.quantity}</p>
+                                    </div>
+                                    <p className="font-black text-blue-500">₹{item.price}</p>
+                                </div>
+                            ))}
+                            {/* Manual Entry Fallback */}
+                            {quoteSearch && !data?.items?.find((item: any) => item.name.toLowerCase() === quoteSearch.toLowerCase()) && (
+                                <div
+                                    className={`p-4 rounded-xl border-2 border-dashed border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/10 text-center cursor-pointer`}
+                                    onClick={() => {
+                                        setQuoteItems([...quoteItems, {
+                                            id: 'manual_' + Date.now(),
+                                            name: quoteSearch,
+                                            price: 0,
+                                            quantity: 1
+                                        }]);
+                                        setShowItemSelector(false);
+                                        setQuoteSearch('');
+                                    }}
+                                >
+                                    <Plus className="mx-auto mb-1 text-blue-500" size={24} />
+                                    <p className="font-bold text-blue-600 dark:text-blue-400">Add "{quoteSearch}" as custom item</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

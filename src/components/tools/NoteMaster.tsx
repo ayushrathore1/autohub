@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
     StickyNote, Search, PenTool, Trash2, Mic, FileText, Bold, Italic, Underline,
-    Highlighter, Circle as CircleIcon, Minus, Eraser
+    Highlighter, Circle as CircleIcon, Minus, Eraser, ArrowLeft
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { FloatingNoteMenu } from '../FloatingNoteMenu';
@@ -10,9 +10,10 @@ interface NoteMasterProps {
     t: (key: string) => string;
     isDark: boolean;
     initialNoteId: number | null | string;
+    onBack?: () => void;
 }
 
-const NoteMaster: React.FC<NoteMasterProps> = ({ t, isDark, initialNoteId }) => {
+const NoteMaster: React.FC<NoteMasterProps> = ({ t, isDark, initialNoteId, onBack }) => {
     // State
     const [notes, setNotes] = useState<any[]>(() => {
         try {
@@ -38,7 +39,7 @@ const NoteMaster: React.FC<NoteMasterProps> = ({ t, isDark, initialNoteId }) => 
     const recognitionRef = useRef<any>(null);
 
     // Shared Styles
-    const cardClass = `p-6 rounded-2xl shadow-lg border h-full flex flex-col ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'}`;
+    const cardClass = `h-full flex flex-col ${isDark ? 'bg-slate-900 border-none' : 'bg-gray-50 border-none'}`;
     const commonInputClass = `w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-3 font-bold text-lg outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all mb-4`;
 
     // Persist Notes
@@ -262,19 +263,25 @@ const NoteMaster: React.FC<NoteMasterProps> = ({ t, isDark, initialNoteId }) => 
     if (notesView === 'list') {
         return (
             <div className={cardClass}>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0">
+                    {onBack && (
+                        <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+                            <ArrowLeft size={24} className={isDark ? 'text-white' : 'text-slate-800'} />
+                        </button>
+                    )}
                     <h3 className="font-bold text-xl flex items-center gap-2">
                         <StickyNote className="text-yellow-500" size={24} />
                         Note Master
                     </h3>
                 </div>
 
-                <div className="relative mb-4">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                    <input
-                        className={`${commonInputClass} pl-10 mb-0 py-2 text-sm`}
-                        placeholder="Search notes..."
-                        value={noteSearch}
+                <div className="flex-1 overflow-y-auto p-4">
+                    <div className="relative mb-4">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <input
+                            className={`${commonInputClass} pl-10 mb-0 py-2 text-sm`}
+                            placeholder="Search notes..."
+                            value={noteSearch}
                         onChange={e => setNoteSearch(e.target.value)}
                     />
                 </div>
@@ -303,23 +310,29 @@ const NoteMaster: React.FC<NoteMasterProps> = ({ t, isDark, initialNoteId }) => 
                         </div>
                     )}
                 </div>
+                </div>
                 <FloatingNoteMenu onSelect={handleNewNoteAction} />
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between p-3 border-b bg-gray-50">
-                <input
-                    className="bg-transparent font-bold text-lg outline-none w-full"
-                    placeholder="Note Title"
-                    value={currentNote.title}
-                    onChange={e => setCurrentNote({ ...currentNote, title: e.target.value })}
-                />
+        <div className={`flex flex-col h-full overflow-hidden animate-in zoom-in-95 duration-200 ${isDark ? 'bg-slate-900 border-none text-white' : 'bg-white border-none text-slate-900'}`}>
+            <div className={`flex items-center justify-between p-4 border-b shrink-0 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+                <div className="flex items-center gap-2 flex-1">
+                    <button onClick={() => setNotesView('list')} className="p-2 -ml-2 rounded-full hover:bg-gray-100/10 transition-colors">
+                        <ArrowLeft size={24} />
+                    </button>
+                    <input
+                        className="bg-transparent font-bold text-lg outline-none w-full"
+                        placeholder="Note Title"
+                        value={currentNote.title}
+                        onChange={e => setCurrentNote({ ...currentNote, title: e.target.value })}
+                    />
+                </div>
                 <div className="flex gap-2">
-                    <button aria-label={t("Delete Note")} onClick={() => deleteNote(currentNote.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-full"><Trash2 size={18} /></button>
-                    <button aria-label={t("Save Note")} onClick={saveCurrentNote} className="p-2 text-green-600 hover:bg-green-50 rounded-full font-bold">Save</button>
+                    <button aria-label={t("Delete Note")} onClick={() => deleteNote(currentNote.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-slate-800 rounded-full"><Trash2 size={18} /></button>
+                    <button aria-label={t("Save Note")} onClick={saveCurrentNote} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl shadow-md hover:shadow-lg font-bold">Save</button>
                 </div>
             </div>
             {isRecording && (
