@@ -29,14 +29,15 @@ const app = initializeApp(firebaseConfig);
 let db: ReturnType<typeof getFirestore>;
 
 try {
-    // Try persistent multi-tab cache first
+    // Try persistent multi-tab cache first with explicit long polling to prevent QUIC issues
     db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
         localCache: persistentLocalCache({
             tabManager: persistentMultipleTabManager(),
             cacheSizeBytes: CACHE_SIZE_UNLIMITED
         })
     });
-    console.info('? Firestore initialized with persistent multi-tab cache');
+    console.info('🛡️ Firestore initialized with persistent multi-tab cache (Long Polling)');
 } catch (err: any) {
     // If IndexedDB has version issues, clear it and use memory cache
     if (err?.message?.includes('not compatible') || err?.code === 'failed-precondition') {
@@ -56,6 +57,7 @@ try {
 
             // Fall back to memory cache for this session
             db = initializeFirestore(app, {
+                experimentalForceLongPolling: true,
                 localCache: memoryLocalCache()
             });
             console.info('✅ Firestore initialized with memory cache (cleared old data)');

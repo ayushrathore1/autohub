@@ -16,8 +16,8 @@ import {
   Pin, PinOff, PenTool, Highlighter, Circle as CircleIcon, Eraser, Type,
   RefreshCw, RotateCcw, Printer, FilePlus, Send,
   Bold, Italic, Underline, Clock, Package,
-  PackageX, TrendingDown, Tag, Vibrate, Activity, ScanBarcode, BarChart2
-} from 'lucide-react';
+  PackageX, TrendingDown, Tag, Vibrate, Activity, ScanBarcode, BarChart2,
+  PieChart, Users, ShoppingCart, TrendingUp, FileMinus, ArrowUp, Home } from 'lucide-react';
 
 // --- MODULE IMPORTS ---
 import { db, auth, storage } from './lib/firebase';
@@ -1350,6 +1350,7 @@ const defaultData: AppDataType = {
   credentials: { email: '', password: '' }
 };
 
+import { DASHBOARD_TOOLS } from './data/dashboardTools';
 
 function DukanRegister() {
   useEffect(() => {
@@ -1369,9 +1370,13 @@ function DukanRegister() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const [view, setView] = useState('generalIndex');
+  const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [activePageId, setActivePageId] = useState(null);
   const [activeToolId, setActiveToolId] = useState(null);
   const [initialNoteId, setInitialNoteId] = useState<number | null>(null);
+
+  const [isDashboardToolEditorOpen, setIsDashboardToolEditorOpen] = useState(false);
+  const [editingTools, setEditingTools] = useState<string[]>([]);
 
   // Alerts Tab State
   const [alertTab, setAlertTab] = useState<'stock' | 'gps'>('stock');
@@ -2575,221 +2580,233 @@ function DukanRegister() {
     );
   }
 
-  const renderGeneralIndex = () => (
-    <div className="pb-24">
-      <div className={`p-5 sticky top-0 z-10 ${isDark ? 'bg-gradient-to-b from-slate-900 to-slate-900/95' : 'bg-gradient-to-b from-amber-50 to-amber-50/95'} backdrop-blur-lg border-b ${isDark ? 'border-slate-800' : 'border-amber-200'}`}>
-        <div className="flex justify-between items-center mb-3">
-          <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-2xl ${isDark ? 'bg-blue-500/20' : 'bg-amber-200'}`}>
-              <Store size={24} className={isDark ? 'text-blue-400' : 'text-amber-700'} />
-            </div>
-            <div>
-              <h1 className={`text-xl font-extrabold ${isDark ? 'text-white' : 'text-amber-900'} truncate max-w-[180px]`}>
-                {data.settings.shopName || "Autonex"}
-              </h1>
-              <p className={`text-[10px] font-semibold ${isDark ? 'text-slate-400' : 'text-amber-600'}`}>Smart Auto Parts Management</p>
-            </div>
+    const renderGeneralIndex = () => (
+    <div className="pb-24 bg-[#f8f9fa] dark:bg-slate-950 font-['Inter',sans-serif] min-h-screen">
+      {/* 1. Header Area */}
+      <div className="px-4 pt-4 pb-4 flex justify-between items-center bg-[#FCFCFC] dark:bg-slate-900 border-b border-gray-100 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-[#FF7A18] rounded-xl flex items-center justify-center text-white shadow-md shadow-orange-500/20">
+            <Package size={22} strokeWidth={2.5} />
           </div>
-          <div className="flex gap-2 items-center">
-            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-              {isOnline ? <Wifi size={12} /> : <WifiOff size={12} className="animate-pulse" />}
-              <span className="hidden sm:inline">{isOnline ? 'Online' : 'Offline'}</span>
-            </div>
-            <TranslateBtn isHindi={isHindi} setIsHindi={setIsHindi} isDark={isDark} />
+          <div>
+            <h1 className="text-[20px] font-bold text-[#0F1724] dark:text-white leading-tight">
+              {data.settings.shopName || "Autonex"}
+            </h1>
+            <p className="text-[12px] font-semibold text-[#556077] dark:text-slate-400">Smart Auto Parts Management</p>
           </div>
         </div>
-        <div className="flex gap-2 mt-2">
-          <div className="relative flex-1">
-            <input className={`w-full pl-10 pr-10 py-3 rounded-2xl border-2 outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-white focus:border-blue-500' : 'bg-white border-amber-200 text-black focus:border-amber-500 shadow-sm'}`} placeholder={t("Search Index...")} value={indexSearchTerm} onChange={e => setIndexSearchTerm(e.target.value)} />
-            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-400' : 'text-amber-400'}`} size={18} />
-            {indexSearchTerm && <button onClick={() => setIndexSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full"><X size={16} /></button>}
+        <div className="flex items-center gap-4">
+          {isOnline ? <Wifi size={20} className="text-[#17B890]" /> : <WifiOff size={20} className="text-[#E53935] animate-pulse" />}
+            <div className="relative cursor-pointer hover:opacity-80 active:scale-95 transition-transform" onClick={() => setShowAnnouncements(true)}><MessageSquare size={22} className="text-[#0F1724] dark:text-white" /><span className="absolute -top-1 -right-1 bg-[#5B5CEB] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white dark:border-slate-900">1</span></div>
+          <div className="relative cursor-pointer hover:opacity-80 active:scale-95 transition-transform" onClick={() => setView('alerts')}>
+            <Bell size={22} className="text-[#0F1724] dark:text-white" />
+            <span className="absolute -top-1 -right-1 bg-[#E53935] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white">3</span>
           </div>
-          <VoiceInput onResult={setIndexSearchTerm} isDark={isDark} lang={isHindi ? 'hi-IN' : 'en-IN'} />
-        </div>
-      </div>
-
-      {/* ADVANCED BUSINESS DASHBOARD CARDS */}
-      <div className="px-4 pt-4 pb-2">
-        <h2 className={`text-sm font-bold mb-3 px-1 ${isDark ? 'text-slate-400' : 'text-slate-500 uppercase tracking-wider'}`}>
-          {t("Business Hub")}
-        </h2>
-        <div className="grid grid-cols-2 gap-3">
-          {/* Smart Analytics */}
-          <div 
-            onClick={() => { setActiveToolId('analytics'); setPreviousView('generalIndex'); setView('tools'); }}
-            className={`p-4 rounded-3xl border-2 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 flex flex-col justify-between h-32 relative overflow-hidden group
-            ${isDark ? 'bg-gradient-to-br from-indigo-900/50 to-purple-900/50 border-indigo-500/30 hover:border-indigo-400' : 'bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-200/50'}`}
-          >
-            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity ${isDark ? 'bg-indigo-400' : 'bg-indigo-500'}`}></div>
-            <div className="flex justify-between items-start">
-              <div className={`p-2 rounded-2xl ${isDark ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
-                <BarChart2 size={24} strokeWidth={2.5} />
-              </div>
-              <ArrowRight size={18} className={`opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`} />
-            </div>
-            <div>
-              <h3 className={`font-bold text-lg leading-tight mb-1 ${isDark ? 'text-white' : 'text-indigo-950'}`}>Smart<br/>Analytics</h3>
-            </div>
-          </div>
-
-          {/* Customer Khata */}
-          <div 
-            onClick={() => { setActiveToolId('udhaar'); setPreviousView('generalIndex'); setView('tools'); }}
-            className={`p-4 rounded-3xl border-2 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 flex flex-col justify-between h-32 relative overflow-hidden group
-            ${isDark ? 'bg-gradient-to-br from-emerald-900/50 to-teal-900/50 border-emerald-500/30 hover:border-emerald-400' : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200 hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-200/50'}`}
-          >
-            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity ${isDark ? 'bg-emerald-400' : 'bg-emerald-500'}`}></div>
-            <div className="flex justify-between items-start">
-              <div className={`p-2 rounded-2xl ${isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}>
-                <CreditCard size={24} strokeWidth={2.5} />
-              </div>
-              <ArrowRight size={18} className={`opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
-            </div>
-            <div>
-              <h3 className={`font-bold text-lg leading-tight mb-1 ${isDark ? 'text-white' : 'text-emerald-950'}`}>Customer<br/>Khata</h3>
-            </div>
-          </div>
-
-          {/* Supplier Ledger */}
-          <div 
-            onClick={() => { setActiveToolId('supplier'); setPreviousView('generalIndex'); setView('tools'); }}
-            className={`p-4 rounded-3xl border-2 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 flex flex-col justify-between h-32 relative overflow-hidden group
-            ${isDark ? 'bg-gradient-to-br from-orange-900/50 to-amber-900/50 border-orange-500/30 hover:border-orange-400' : 'bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200 hover:border-orange-300 hover:shadow-lg hover:shadow-orange-200/50'}`}
-          >
-            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity ${isDark ? 'bg-orange-400' : 'bg-orange-500'}`}></div>
-            <div className="flex justify-between items-start">
-              <div className={`p-2 rounded-2xl ${isDark ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-100 text-orange-600'}`}>
-                <Package size={24} strokeWidth={2.5} />
-              </div>
-              <ArrowRight size={18} className={`opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0 ${isDark ? 'text-orange-400' : 'text-orange-600'}`} />
-            </div>
-            <div>
-              <h3 className={`font-bold text-lg leading-tight mb-1 ${isDark ? 'text-white' : 'text-orange-950'}`}>Supplier<br/>Ledger</h3>
-            </div>
-          </div>
-
-          {/* Warranty Vault */}
-          <div 
-            onClick={() => { setActiveToolId('warranty'); setPreviousView('generalIndex'); setView('tools'); }}
-            className={`p-4 rounded-3xl border-2 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 flex flex-col justify-between h-32 relative overflow-hidden group
-            ${isDark ? 'bg-gradient-to-br from-rose-900/50 to-pink-900/50 border-rose-500/30 hover:border-rose-400' : 'bg-gradient-to-br from-rose-50 to-pink-50 border-rose-200 hover:border-rose-300 hover:shadow-lg hover:shadow-rose-200/50'}`}
-          >
-            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity ${isDark ? 'bg-rose-400' : 'bg-rose-500'}`}></div>
-            <div className="flex justify-between items-start">
-              <div className={`p-2 rounded-2xl ${isDark ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-100 text-rose-600'}`}>
-                <Shield size={24} strokeWidth={2.5} />
-              </div>
-              <ArrowRight size={18} className={`opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0 ${isDark ? 'text-rose-400' : 'text-rose-600'}`} />
-            </div>
-            <div>
-              <h3 className={`font-bold text-lg leading-tight mb-1 ${isDark ? 'text-white' : 'text-rose-950'}`}>Warranty<br/>Vault</h3>
-            </div>
-          </div>
-          
-          {/* Smart Import (span 2 columns) */}
-          <div 
-            onClick={() => { setActiveToolId('import'); setPreviousView('generalIndex'); setView('tools'); }}
-            className={`col-span-2 p-4 rounded-3xl border-2 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 flex flex-row items-center justify-between relative overflow-hidden group
-            ${isDark ? 'bg-gradient-to-r from-cyan-900/50 to-blue-900/50 border-cyan-500/30 hover:border-cyan-400' : 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-200 hover:border-cyan-300 hover:shadow-lg hover:shadow-cyan-200/50'}`}
-          >
-            <div className={`absolute right-0 top-0 w-32 h-32 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity ${isDark ? 'bg-cyan-400' : 'bg-cyan-500'}`}></div>
-            <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-2xl ${isDark ? 'bg-cyan-500/20 text-cyan-400' : 'bg-cyan-100 text-cyan-600'}`}>
-                <ScanBarcode size={26} strokeWidth={2.5} />
-              </div>
-              <div>
-                <h3 className={`font-bold text-lg leading-tight ${isDark ? 'text-white' : 'text-cyan-950'}`}>Smart Data Import</h3>
-                <p className={`text-xs ${isDark ? 'text-cyan-200' : 'text-cyan-700'}`}>Add inventory from Excel/CSV</p>
-              </div>
-            </div>
-            <ArrowRight size={20} className={`opacity-0 group-hover:opacity-100 transition-opacity translate-x-[-10px] group-hover:translate-x-0 ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`} />
+          <div className="w-8 h-8 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center text-[#556077] dark:text-slate-300">
+            <User size={18} />
           </div>
         </div>
       </div>
 
-      {/* ?? SALES PREDICTION WIDGET */}
-      {data.settings?.aiPredictions && (typeof data.settings?.widgets !== 'boolean' ? data.settings?.widgets?.predictions !== false : true) && (
-        <SalesPredictionWidget data={data} t={t} isDark={isDark} />
-      )}
-
-      {/* ?? DEAD STOCK ALERT */}
-      <DeadStockAlert
-        data={data}
-        onNavigate={(pageId) => { setActivePageId(pageId); setView('page'); }}
-      />
-
-      {/* Recent Notes Widget hidden to save dashboard space
-      <RecentNotesWidget
-        onNavigate={(noteId) => {
-          setActiveToolId(null);
-          setTimeout(() => {
-            setActiveToolId('notes');
-            if (noteId) setInitialNoteId(noteId);
-            setView('tools');
-          }, 50);
-        }}
-        isDark={isDark}
-        t={t}
-      />
-      */}
-
-
-      {data.settings.pinnedTools && data.settings.pinnedTools.length > 0 && (
-        <div className={`py-3 px-4 border-b overflow-x-auto whitespace-nowrap flex gap-3 hide-scrollbar ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-gray-50 border-gray-200'}`}>
-          {[
-            { id: 'basicCalc', icon: <Calculator size={18} />, label: 'Calc', col: 'text-teal-600 bg-teal-100' },
-            { id: 'quotation', icon: <FileText size={18} />, label: 'Quote', col: 'text-indigo-600 bg-indigo-100' },
-            { id: 'invoice', icon: <FileText size={18} />, label: 'Bill', col: 'text-indigo-600 bg-indigo-100' },
-            { id: 'gst', icon: <Percent size={18} />, label: 'GST', col: 'text-blue-600 bg-blue-100' },
-            { id: 'margin', icon: <Calculator size={18} />, label: 'Profit', col: 'text-purple-600 bg-purple-100' },
-            { id: 'emi', icon: <DollarSign size={18} />, label: 'EMI', col: 'text-emerald-600 bg-emerald-100' },
-            { id: 'converter', icon: <RefreshCcw size={18} />, label: 'Convert', col: 'text-green-600 bg-green-100' },
-            { id: 'stockvalue', icon: <Activity size={18} />, label: 'Stock', col: 'text-cyan-600 bg-cyan-100' },
-            { id: 'card', icon: <CreditCard size={18} />, label: 'Card', col: 'text-orange-600 bg-orange-100' },
-            { id: 'notes', icon: <StickyNote size={18} />, label: 'Notes', col: 'text-yellow-600 bg-yellow-100' },
-            { id: 'translator', icon: <Languages size={18} />, label: 'Trans', col: 'text-pink-600 bg-pink-100' },
-          ].filter(t => data.settings.pinnedTools.includes(t.id)).map(tool => (
-            <button key={tool.id} onClick={() => { setActiveToolId(tool.id); setPreviousView('generalIndex'); setView('tools'); }} className={`inline-flex items-center gap-2 px-3 py-2 rounded-full font-bold text-sm shadow-sm border ${tool.col} border-transparent hover:scale-105 transition-transform`}>
-              {tool.icon} {tool.label}
+      {/* 2. Search Bar */}
+      <div className="px-4 py-3 bg-[#FCFCFC] dark:bg-slate-900 sticky top-0 z-40 shadow-sm border-b border-gray-50 dark:border-slate-800">
+        <div className="relative flex items-center bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-[0_4px_12px_rgba(15,20,36,0.03)] px-3 py-3 transition-all focus-within:shadow-[0_8px_20px_rgba(15,20,36,0.08)]">
+          <Search size={20} className="text-[#556077] mr-2" />
+          <input 
+            className="flex-1 outline-none bg-transparent text-[#0F1724] dark:text-white text-[14px] placeholder-[#556077]"
+            placeholder={t("Search Parts, Bills, Customers") + " ..."}
+            value={indexSearchTerm}
+            onChange={e => setIndexSearchTerm(e.target.value)}
+          />
+          <div className="flex gap-2 items-center ml-2 border-l pl-2 border-gray-200 dark:border-slate-700">
+            <VoiceInput onResult={setIndexSearchTerm} isDark={isDark} lang={isHindi ? 'hi-IN' : 'en-IN'} />
+            <button className="text-[#556077] hover:text-[#0F1724] dark:hover:text-white p-1" onClick={() => { setActiveToolId('import'); setPreviousView('generalIndex'); setView('tools'); }}>
+              <ScanBarcode size={20} />
             </button>
-          ))}
-        </div>
-      )}
-
-      <div className={`m-2 mt-4 border-2 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-black bg-white'}`}>
-        <div className={`flex border-b-2 ${isDark ? 'border-slate-700 bg-slate-800 text-white' : 'border-black bg-gray-100 text-black'} p-2`}>
-          <div className="w-12 font-black text-center border-r border-gray-400">#</div>
-          <div className="flex-1 font-black pl-3 border-r border-gray-400">{t("Particulars")}</div>
-          <div className="w-16 font-black text-center border-r border-gray-400">{t("Page")}</div>
-          <div className="w-12 font-black text-center">Edit</div>
-        </div>
-        <div className="min-h-[20vh]">
-          {globalSearchResults.pages.map((page) => (
-            <div key={page.id} onClick={() => { setActivePageId(page.id); setView('page'); setPageSearchTerm(''); }} className={`flex border-b border-gray-300 cursor-pointer hover:bg-blue-50 transition-colors h-14 items-center ${isDark ? 'text-white hover:bg-slate-800' : 'text-black'}`}>
-              <div className="w-12 text-center font-bold text-red-600 border-r border-gray-300 h-full flex items-center justify-center text-sm">{page.pageNo}</div>
-              <div className="flex-1 pl-3 font-semibold text-lg border-r border-gray-300 h-full flex items-center truncate">{t(page.itemName)}</div>
-              <div className="w-16 text-center font-bold text-blue-700 h-full flex items-center justify-center underline border-r border-gray-300">{page.pageNo}</div>
-
-              <div className="w-12 flex items-center justify-center h-full" onClick={(e) => e.stopPropagation()}>
-                <button onClick={() => { setManagingPage(page); setInput({ ...input, itemName: page.itemName }); }} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-100 rounded-full">
-                  <Edit size={18} />
-                </button>
-              </div>
-            </div>
-          ))}
-          {globalSearchResults.pages.length === 0 && <div className="p-8 text-center text-gray-400">
-            <Book size={48} className="mx-auto mb-3 opacity-30" />
-            <p className="font-semibold">{t("No Pages Found")}</p>
-            <p className="text-xs mt-1">Tap + to create your first page</p>
-          </div>}
+          </div>
         </div>
       </div>
-      <button
-        onClick={() => setIsNewPageOpen(true)}
-        className="fixed bottom-24 right-6 bg-gradient-to-br from-yellow-500 to-orange-500 text-white w-16 h-16 rounded-2xl shadow-2xl shadow-yellow-500/40 flex items-center justify-center active:scale-90 z-20 hover:from-yellow-400 hover:to-orange-400 transition-all group"
-      >
-        <Plus size={32} strokeWidth={3} className="group-hover:rotate-90 transition-transform duration-200" />
-      </button>
+
+      {/* 3. KPI Cards Row */}
+      <div className="px-4 pt-5 pb-2 overflow-x-auto hide-scrollbar flex gap-3">
+        <div className="min-w-[145px] bg-[#FFFFFF] dark:bg-slate-800 p-4 rounded-[16px] border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform" onClick={() => { setView('pagesGrid'); }}>
+          <div className="flex items-center gap-1.5 text-[#556077] dark:text-slate-400 mb-1">
+            <TrendingDown size={14} className="text-[#17B890] transform rotate-180" />
+            <span className="text-[12px] font-semibold">{t("Today's Sales")}</span>
+          </div>
+          <div className="text-[22px] font-bold text-[#0F1724] dark:text-white leading-tight mb-1">₹20,500</div>
+          <div className="text-[11px] font-bold text-[#17B890] flex items-center gap-0.5 mt-2">
+            <ArrowUp size={12} strokeWidth={3}/> 12% vs Yesterday
+          </div>
+        </div>
+
+        <div className="min-w-[145px] bg-[#FFFFFF] dark:bg-slate-800 p-4 rounded-[16px] border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform" onClick={() => setAlertTab('stock')}>
+          <div className="flex items-center gap-1.5 text-[#F57C00] mb-1">
+            <AlertTriangle size={14} />
+            <span className="text-[12px] font-semibold">{t("Low Stock")}</span>
+          </div>
+          <div className="text-[22px] font-bold text-[#0F1724] dark:text-white leading-tight mb-1">15 Items</div>
+          <div className="text-[11px] font-bold text-[#FF7A18] flex items-center gap-0.5 mt-2">
+            View Alerts <ChevronRight size={12}/>
+          </div>
+        </div>
+
+        <div className="min-w-[145px] bg-[#FFFFFF] dark:bg-slate-800 p-4 rounded-[16px] border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform" onClick={() => { setActiveToolId('udhaar'); setView('tools'); }}>
+          <div className="flex items-center gap-1.5 text-[#2F80ED] mb-1">
+            <FileText size={14} />
+            <span className="text-[12px] font-semibold text-[#556077] dark:text-slate-400">{t("Pending Due")}</span>
+          </div>
+          <div className="text-[22px] font-bold text-[#0F1724] dark:text-white leading-tight mb-1">₹45,000</div>
+          <div className="text-[11px] font-bold text-[#2F80ED] flex items-center gap-0.5 mt-2">
+            Collect Now <ChevronRight size={12}/>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Business Hub Section */}
+      <div className="px-4 mt-4 mb-3 flex justify-between items-center">
+        <h2 className="text-[16px] font-bold text-[#0F1724] dark:text-white">{t("Business Hub")}</h2>
+        <button 
+          onClick={() => {
+            setEditingTools(data.settings?.dashboardTools || ['analytics', 'udhaar', 'supplier', 'warranty', 'import']);
+            setIsDashboardToolEditorOpen(true);
+          }}
+          className="text-[13px] font-semibold text-[#FF7A18] hover:text-orange-600"
+        >
+          {t("See All")}
+        </button>
+      </div>
+
+            {/* 5. Grid of Feature Tiles */}
+      <div className="px-4 grid grid-cols-4 gap-x-3 gap-y-4 mb-8">
+        {(() => {
+          const allTools = [
+            { id: "supplier", title: "Supplier\nLedger", icon: Package, bg: "bg-[#FFF3E6]", iconCol: "text-[#FF7A18]", darkBg: "dark:bg-orange-950/40" },
+            { id: "udhaar", title: "Customer\nKhata", icon: Users, bg: "bg-[#E6FBF2]", iconCol: "text-[#17B890]", darkBg: "dark:bg-emerald-950/40" },
+            { id: "quotation", title: "Quotation\nMaker", icon: FileText, bg: "bg-[#F0EEFF]", iconCol: "text-[#5C6BC0]", darkBg: "dark:bg-indigo-950/40" },
+            { id: "invoice", title: "Bill\nGenerator", icon: FileText, bg: "bg-[#EAF6FF]", iconCol: "text-[#2F80ED]", darkBg: "dark:bg-blue-950/40" },
+            { id: "stockvalue", title: "Inventory", icon: Package, bg: "bg-[#FFFBE6]", iconCol: "text-[#FBC02D]", darkBg: "dark:bg-yellow-950/40" },
+            { id: "warranty", title: "Warranty\nVault", icon: Shield, bg: "bg-[#FCE4EC]", iconCol: "text-[#EC407A]", darkBg: "dark:bg-pink-950/40" },
+            { id: "analytics", title: "Sales\nReport", icon: TrendingUp, bg: "bg-[#F3E5F5]", iconCol: "text-[#AB47BC]", darkBg: "dark:bg-purple-950/40" },
+            { id: "margin", title: "Expenses", icon: FileMinus, bg: "bg-[#FBE9E7]", iconCol: "text-[#FF7043]", darkBg: "dark:bg-red-950/40" },
+            { id: "gst", title: "GST\nReports", icon: Percent, bg: "bg-[#E3F2FD]", iconCol: "text-[#42A5F5]", darkBg: "dark:bg-blue-900/30" },
+            { id: "settings", title: "Settings", icon: Settings, bg: "bg-[#F5F5F5]", iconCol: "text-[#757575]", darkBg: "dark:bg-gray-800" },
+            { id: "basicCalc", title: "Business\nCalc", icon: Calculator, bg: "bg-[#E0F2F1]", iconCol: "text-[#00897B]", darkBg: "dark:bg-teal-900/30" },
+            { id: "emi", title: "EMI\nCalc", icon: DollarSign, bg: "bg-[#E8F5E9]", iconCol: "text-[#43A047]", darkBg: "dark:bg-green-900/30" },
+            { id: "converter", title: "Unit\nConvert", icon: RefreshCcw, bg: "bg-[#F1F8E9]", iconCol: "text-[#689F38]", darkBg: "dark:bg-lime-900/30" },
+            { id: "card", title: "Digital\nCard", icon: CreditCard, bg: "bg-[#FFF3E0]", iconCol: "text-[#EF6C00]", darkBg: "dark:bg-orange-900/30" },
+            { id: "notes", title: "Note\nMaster", icon: StickyNote, bg: "bg-[#FFFDE7]", iconCol: "text-[#AFB42B]", darkBg: "dark:bg-yellow-900/30" },
+            { id: "import", title: "Data\nImport", icon: ScanBarcode, bg: "bg-[#E1F5FE]", iconCol: "text-[#7CB342]", darkBg: "dark:bg-sky-900/30" }
+          ];
+
+          const pinnedIds = data.settings?.pinnedTools || [];
+          
+          let displayTools = [];
+          if (pinnedIds.length > 0) {
+            displayTools = pinnedIds.map(id => allTools.find(t => t.id === id)).filter(Boolean);
+          } else {
+            // Default 7 list if none pinned
+            displayTools = allTools.slice(0, 7);
+          }
+
+          const systemTiles = [
+            { id: "all_tools", title: "All\nTools", icon: Layers, bg: "bg-[#F0EEFF]", iconCol: "text-[#5C6BC0]", darkBg: "dark:bg-indigo-900/30" }
+          ];
+
+          return [...displayTools, ...systemTiles].map((tile, i) => {
+            const Icon = tile.icon;
+            return (
+              <div
+                key={tile.id + "-" + i}
+                onClick={() => {
+                  if (tile.id === "settings") { setView("settings"); }
+                  else if (tile.id === "all_tools") { setView("tools"); }
+                  else { setActiveToolId(tile.id); setPreviousView("generalIndex"); setView("tools"); }
+                }}
+                className={`${tile.bg} ${tile.darkBg} rounded-[16px] p-3 flex flex-col justify-center items-center text-center shadow-sm active:scale-95 transition-transform min-h-[96px]`}
+              >
+                <div className={`w-10 h-10 rounded-full bg-white/70 dark:bg-black/20 flex items-center justify-center mb-2 ${tile.iconCol}`}>
+                  <Icon size={20} strokeWidth={2.5}/>
+                </div>
+                <h3 className="text-[#0F1724] dark:text-white font-semibold text-[11px] leading-tight whitespace-pre-line">{t(tile.title.replace("\n", " "))}</h3>
+              </div>
+            );
+          });
+        })()}
+      </div>
+
+      {/* 6. Feature Promo Banner */}
+      <div className="px-4 mb-6">
+        <div className="bg-white dark:bg-slate-800 rounded-[16px] p-4 flex items-center justify-between border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform" onClick={() => { setActiveToolId('analytics'); setView('tools'); }}>
+          <div className="flex-1 pr-2">
+            <h3 className="text-[#0F1724] dark:text-white font-bold text-[15px] mb-1">Grow Your Auto Parts Business</h3>
+            <p className="text-[#FF7A18] font-semibold text-[13px] flex items-center gap-1">
+              View Analytics <ArrowRight size={14} strokeWidth={3}/>
+            </p>
+          </div>
+          <div className="w-[80px] h-[50px] flex items-end justify-between gap-1 opacity-90 pr-1">
+             <div className="w-4 bg-[#17B890] opacity-40 rounded-t-sm h-[40%]"></div>
+             <div className="w-4 bg-[#17B890] opacity-60 rounded-t-sm h-[60%]"></div>
+             <div className="w-4 bg-[#17B890] opacity-80 rounded-t-sm h-[80%]"></div>
+             <div className="w-4 bg-[#17B890] opacity-100 rounded-t-sm h-[100%]"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* 7. Quick Actions */}
+      <div className="px-4 mb-2">
+        <h2 className="text-[15px] font-bold text-[#0F1724] dark:text-white mb-3">{t("Quick Actions")}</h2>
+      </div>
+      <div className="px-4 pb-6 overflow-x-auto hide-scrollbar flex gap-3">
+        <button 
+           onClick={() => { setActiveToolId('invoice'); setView('tools'); }}
+           className="flex items-center gap-2 px-5 py-3.5 bg-[#FF7A18] text-white rounded-full font-bold shadow-md shadow-orange-500/30 whitespace-nowrap active:scale-95 transition-transform">
+           <Plus size={18} strokeWidth={3}/> New Bill
+        </button>
+        <button 
+           onClick={() => { setView('pagesGrid'); setIsNewPageOpen(true); }}
+           className="flex items-center gap-2 px-5 py-3.5 bg-blue-50 dark:bg-slate-800 text-[#2F80ED] border border-blue-200 dark:border-slate-700 rounded-full font-bold whitespace-nowrap active:scale-95 transition-transform">
+           <Package size={18} strokeWidth={2.5}/> Add Stock
+        </button>
+        <button 
+           onClick={() => { setActiveToolId('udhaar'); setView('tools'); }}
+           className="flex items-center gap-2 px-5 py-3.5 bg-emerald-50 dark:bg-slate-800 text-[#17B890] border border-emerald-200 dark:border-slate-700 rounded-full font-bold whitespace-nowrap active:scale-95 transition-transform">
+           <User size={18} strokeWidth={2.5}/> Add Customer
+        </button>
+        <button 
+           onClick={() => { setActiveToolId('import'); setView('tools'); }}
+           className="flex items-center gap-2 px-5 py-3.5 bg-purple-50 dark:bg-slate-800 text-[#8B5CF6] border border-purple-200 dark:border-slate-700 rounded-full font-bold whitespace-nowrap active:scale-95 transition-transform">
+           <ScanBarcode size={18} strokeWidth={2.5}/> Scan & Add
+        </button>
+      </div>
+
+      {/* Legacy Search View for Functional Rendering */}
+      {indexSearchTerm && (
+      <div className="px-4 mt-2 mb-8">
+        <div className={`border border-gray-200 rounded-xl overflow-hidden ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+          <div className={`flex border-b ${isDark ? 'border-slate-700 bg-slate-800 text-white' : 'border-gray-100 bg-gray-50 text-[#556077]'} p-3`}>
+            <div className="w-12 font-bold text-center border-r border-[#E6FBF2] dark:border-slate-700 text-[13px]">#</div>
+            <div className="flex-1 font-bold pl-3 border-r border-[#E6FBF2] dark:border-slate-700 text-[13px]">{t("Search Results")}</div>
+          </div>
+          <div className="min-h-[15vh]">
+            {globalSearchResults.pages.map((page) => (
+              <div key={page.id} onClick={() => { setActivePageId(page.id); setView('page'); setPageSearchTerm(''); }} className={`flex border-b border-gray-50 dark:border-slate-800 cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors h-14 items-center ${isDark ? 'text-white' : 'text-[#0F1724]'}`}>
+                <div className="w-12 text-center font-bold text-[#E53935] border-r border-gray-50 dark:border-slate-800 h-full flex items-center justify-center text-sm">{page.pageNo}</div>
+                <div className="flex-1 pl-3 font-semibold text-[14px] border-r border-gray-50 dark:border-slate-800 h-full flex items-center truncate">{t(page.itemName)}</div>
+                <div className="w-16 text-center font-bold text-[#2F80ED] h-full flex items-center justify-center underline text-sm">{page.pageNo}</div>
+              </div>
+            ))}
+            {globalSearchResults.pages.length === 0 && (
+               <div className="p-8 text-center text-gray-400">
+                  <Search size={32} className="mx-auto mb-2 opacity-30" />
+                  <p className="font-medium text-sm">{t("No matches found")}</p>
+               </div>
+            )}
+          </div>
+        </div>
+      </div>
+      )}
+
     </div>
   );
 
@@ -3272,7 +3289,40 @@ function DukanRegister() {
         updateQtyBuffer={updateQtyBuffer}
         tempChanges={tempChanges}
       />}
-      {view === 'alerts' && renderAlerts()}
+      {showAnnouncements && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-start justify-center p-4 pt-20 animate-in fade-in">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-gray-100 dark:border-slate-800 animate-in slide-in-from-top-4">
+              <div className="p-4 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                    <MessageSquare size={18} />
+                  </div>
+                  <h3 className="font-bold text-[#0F1724] dark:text-white">Admin Updates</h3>
+                </div>
+                <button onClick={() => setShowAnnouncements(false)} className="p-2 text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-full transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+                 <div className="border-l-4 border-blue-500 pl-4 py-1">
+                   <div className="flex justify-between items-start mb-1">
+                     <h4 className="font-bold text-[14px] text-[#0F1724] dark:text-white">Welcome to Autohub Pro</h4>
+                     <span className="text-[10px] text-gray-400">Just now</span>
+                   </div>
+                   <p className="text-[13px] text-gray-500 dark:text-gray-400 leading-relaxed">Inventory tools with dynamic drop-downs and realtime auto-sync features are now live!</p>
+                 </div>
+                 <div className="border-l-4 border-emerald-500 pl-4 py-1">
+                   <div className="flex justify-between items-start mb-1">
+                     <h4 className="font-bold text-[14px] text-[#0F1724] dark:text-white">Billing Made Easy</h4>
+                     <span className="text-[10px] text-gray-400">1 day ago</span>
+                   </div>
+                   <p className="text-[13px] text-gray-500 dark:text-gray-400 leading-relaxed">You can now search and directly select inventory stock items while generating invoices or creating quotations.</p>
+                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {view === 'alerts' && renderAlerts()}
       {view === 'settings' && <SettingsPanel
         isDark={isDark}
         t={t}
@@ -3307,13 +3357,12 @@ function DukanRegister() {
 
       {renderSaveButton()}
 
-      <div className={`fixed bottom-0 w-full border-t flex justify-between px-1 py-1.5 pb-safe z-50 backdrop-blur-lg ${isDark ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-gray-200 shadow-lg shadow-gray-200/50'}`}>
-        <NavBtn icon={Book} label={t("Index")} active={view === 'generalIndex'} onClick={() => { setView('generalIndex'); setActivePageId(null); }} isDark={isDark} accentHex={accentHex} />
-        <NavBtn icon={Grid} label={t("Pages")} active={view === 'pagesGrid'} onClick={() => { setView('pagesGrid'); setIndexSearchTerm(''); setActivePageId(null); }} isDark={isDark} accentHex={accentHex} />
-        <NavBtn icon={Search} label={t("Search")} active={view === 'stockSearch'} onClick={() => { setView('stockSearch'); setStockSearchTerm(''); }} isDark={isDark} accentHex={accentHex} />
-        <NavBtn icon={AlertTriangle} label={t("Alerts")} active={view === 'alerts'} onClick={() => setView('alerts')} alert={(data.entries || []).some(e => e.qty < data.settings.limit)} isDark={isDark} accentHex={accentHex} />
-        {/* My Bills nav removed */}
-        <NavBtn icon={Settings} label={t("Settings")} active={view === 'settings'} onClick={() => setView('settings')} isDark={isDark} accentHex={accentHex} />
+      <div className={`fixed bottom-0 w-full border-t flex justify-between px-2 py-2 pb-safe z-50 backdrop-blur-xl ${isDark ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-[#F0F2F5] shadow-[0_-4px_20px_rgba(0,0,0,0.03)]'}`}>
+        <NavBtn icon={Home} label={t("Home")} active={view === 'generalIndex'} onClick={() => { setView('generalIndex'); setActivePageId(null); }} isDark={isDark} accentHex={'#FF7A18'} />
+        <NavBtn icon={Grid} label={t("Stock")} active={view === 'pagesGrid'} onClick={() => { setView('pagesGrid'); setIndexSearchTerm(''); setActivePageId(null); }} isDark={isDark} accentHex={'#FF7A18'} />
+        <NavBtn icon={Search} label={t("Search")} active={view === 'stockSearch'} onClick={() => { setView('stockSearch'); setStockSearchTerm(''); }} isDark={isDark} accentHex={'#FF7A18'} />
+        <NavBtn icon={Bell} label={t("Alerts")} active={view === 'alerts'} onClick={() => setView('alerts')} alert={(data.entries || []).some(e => e.qty < data.settings.limit)} isDark={isDark} accentHex={'#FF7A18'} />
+        <NavBtn icon={Settings} label={t("Setting")} active={view === 'settings'} onClick={() => setView('settings')} isDark={isDark} accentHex={'#FF7A18'} />
       </div>
 
       {isNewPageOpen && (
@@ -3556,6 +3605,69 @@ function DukanRegister() {
           </div>
         </div>
       )}
+      
+      {isDashboardToolEditorOpen && (
+          <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+            <div className={`w-full max-w-md h-[85vh] sm:h-[80vh] flex flex-col rounded-t-3xl sm:rounded-3xl shadow-2xl ${isDark ? 'bg-slate-900 border border-slate-700' : 'bg-white'}`}>
+              <div className={`p-5 border-b flex justify-between items-center shrink-0 ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
+                <div>
+                  <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{t("Customize Hub")}</h3>
+                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{t("Select up to 6 quick tools")} ({editingTools.length}/6)</p>
+                </div>
+                <button onClick={() => setIsDashboardToolEditorOpen(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800"><X size={20}/></button>
+              </div>
+              <div className="p-4 flex-1 overflow-y-auto space-y-3">
+                {DASHBOARD_TOOLS.map(tool => {
+                  const isSelected = editingTools.includes(tool.id);
+                  const Icon = tool.icon;
+                  return (
+                    <div 
+                      key={tool.id} 
+                      onClick={() => {
+                        if (isSelected) {
+                          setEditingTools(editingTools.filter(id => id !== tool.id));
+                        } else {
+                          if (editingTools.length >= 6) {
+                            showToast(t("Maximum 6 tools allowed"), 'error');
+                            return;
+                          }
+                          setEditingTools([...editingTools, tool.id]);
+                        }
+                      }}
+                      className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all cursor-pointer ${isSelected ? (isDark ? 'border-blue-500 bg-blue-500/10' : 'border-blue-500 bg-blue-50') : (isDark ? 'border-slate-700 hover:border-slate-600' : 'border-gray-200 hover:border-gray-300')}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${isSelected ? 'bg-blue-500 text-white' : (isDark ? 'bg-slate-800 text-slate-400' : 'bg-gray-100 text-gray-500')}`}>
+                          <Icon size={20} />
+                        </div>
+                        <span className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{tool.name.replace('\n', ' ')}</span>
+                      </div>
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-blue-500 bg-blue-500 text-white' : (isDark ? 'border-slate-600' : 'border-gray-300')}`}>
+                        {isSelected && <CheckCircle size={14} strokeWidth={3} />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className={`p-4 border-t shrink-0 ${isDark ? 'border-slate-800 bg-slate-900' : 'border-gray-100 bg-white'}`}>
+                <button 
+                  onClick={() => {
+                    const newSettings = { ...(data.settings || {}), dashboardTools: editingTools };
+                    const newData = { ...data, settings: newSettings };
+                    setData(newData);
+                    pushToFirebase(newData);
+                    setIsDashboardToolEditorOpen(false);
+                    showToast(t("Hub Updated"));
+                  }} 
+                  className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-lg shadow-lg shadow-blue-600/30 transition-all active:scale-95"
+                >
+                  {t("Save Changes")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
     </div>
   );
 }
@@ -3567,5 +3679,6 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
 
 

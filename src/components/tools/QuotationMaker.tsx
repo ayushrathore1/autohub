@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { FileText, FileCheck, MessageCircle, Download, Trash2, Plus, Search, X, ArrowLeft } from 'lucide-react';
+import VoiceInput from '../VoiceInput';
 import { QuotationSchema } from '../../schemas';
 
 interface QuotationMakerProps {
@@ -397,21 +398,26 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({ t, shopDetails, data, i
                             <button onClick={() => setShowItemSelector(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800"><X size={20} /></button>
                         </div>
                         <div className="p-4 shrink-0">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                <input
-                                    className={commonInputClass.replace('p-3.5', 'p-3 pl-10')}
-                                    placeholder="Search inventory..."
-                                    value={quoteSearch}
-                                    onChange={e => setQuoteSearch(e.target.value)}
-                                    autoFocus
-                                />
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                    <input
+                                        className={commonInputClass.replace('p-3.5', 'p-3 pl-10')}
+                                        placeholder="Search inventory..."
+                                        value={quoteSearch}
+                                        onChange={e => setQuoteSearch(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="shrink-0 flex items-center justify-center">
+                                    <VoiceInput onResult={setQuoteSearch} isDark={isDark} />
+                                </div>
                             </div>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                            {data?.items?.filter((item: any) =>
-                                item.name.toLowerCase().includes(quoteSearch.toLowerCase()) ||
-                                (item.barcodes && item.barcodes.some((b: string) => b.includes(quoteSearch)))
+                            {data?.pages?.filter((item: any) =>
+                                (item.itemName || "").toLowerCase().includes(quoteSearch.toLowerCase()) ||
+                                (item.barcode && item.barcode.some((b: string) => b.includes(quoteSearch)))
                             ).map((item: any) => (
                                 <div
                                     key={item.id}
@@ -419,8 +425,8 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({ t, shopDetails, data, i
                                     onClick={() => {
                                         setQuoteItems([...quoteItems, {
                                             id: item.id,
-                                            name: item.name,
-                                            price: item.price,
+                                            name: item.itemName,
+                                            price: item.purchases && item.purchases.length > 0 ? item.purchases[0].price : 0,
                                             quantity: 1,
                                             brand: item.brand
                                         }]);
@@ -429,14 +435,14 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({ t, shopDetails, data, i
                                     }}
                                 >
                                     <div>
-                                        <p className="font-bold">{item.name}</p>
-                                        <p className="text-xs text-gray-500">Stock: {item.quantity}</p>
+                                        <p className="font-bold">{item.itemName}</p>
+                                        <p className="text-xs text-gray-500">Inventory item</p>
                                     </div>
-                                    <p className="font-black text-blue-500">₹{item.price}</p>
+                                    <p className="font-black text-blue-500">?{item.purchases && item.purchases.length > 0 ? item.purchases[0].price : 0}</p>
                                 </div>
                             ))}
                             {/* Manual Entry Fallback */}
-                            {quoteSearch && !data?.items?.find((item: any) => item.name.toLowerCase() === quoteSearch.toLowerCase()) && (
+                            {quoteSearch && !data?.pages?.find((item: any) => (item.itemName || "").toLowerCase() === quoteSearch.toLowerCase()) && (
                                 <div
                                     className={`p-4 rounded-xl border-2 border-dashed border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/10 text-center cursor-pointer`}
                                     onClick={() => {
