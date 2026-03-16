@@ -20,11 +20,6 @@ import {
   PieChart, Users, ShoppingCart, TrendingUp, FileMinus, ArrowUp, Home } from 'lucide-react';
 
 // --- MODULE IMPORTS ---
-import { db, auth, storage } from './lib/firebase';
-import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
-
 import { AIEngine, Trie, PriorityQueue, BloomFilter, fuzzySearch, LRUCache } from './lib/ai-engine';
 import { translateWithGoogle, translateWithMyMemory, transliterateWithGoogle, convertToHindiFallback, translationCache, sanitizeDisplayText } from './lib/translation';
 import { performSmartSearch } from './lib/search';
@@ -1533,110 +1528,94 @@ function DukanRegister() {
   }, [data.pages, activePageId]);
 
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const token = localStorage.getItem('autohub_token');
+    if (token) {
+      // Verify token
+      fetch('http://localhost:5000/api/auth/verify', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.email) {
+          setUser(data);
+        } else {
+          localStorage.removeItem('autohub_token');
+          setUser(null);
+        }
+        setAuthLoading(false);
+      })
+      .catch((err) => {
+        console.error('Token verification error:', err);
+        setUser(null);
+        setAuthLoading(false);
+      });
+    } else {
+      setUser(null);
       setAuthLoading(false);
-    });
-    return () => unsubAuth();
+    }
   }, []);
 
   useEffect(() => {
     if (!user) return;
     setDbLoading(true);
 
-    // Safety timeout - Force loading to complete after 10 seconds to prevent infinite loading
     const loadingTimeout = setTimeout(() => {
       console.warn('Loading timeout reached - forcing load completion');
       setDbLoading(false);
     }, 10000);
 
-    // Define handlers so we can properly clean them up
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    const unsubDb = onSnapshot(doc(db, "appData", user.uid), (docSnapshot) => {
-      clearTimeout(loadingTimeout); // Clear timeout since we got a response
-      try {
-        if (docSnapshot.exists()) {
-          // store doc id for diagnostics / admin contact display
-          setFbDocId(docSnapshot.id);
-          const cloudData = docSnapshot.data();
-          if (!cloudData.settings) cloudData.settings = defaultData.settings;
-          if (!cloudData.settings.pinnedTools) cloudData.settings.pinnedTools = [];
-          if (!cloudData.settings.shopName) cloudData.settings.shopName = 'Autonex';
-          if (!cloudData.appStatus) cloudData.appStatus = 'active';
+    // Initial data fetch
+    fetch('http://localhost:5000/api/data/sync', {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('autohub_token')}` }
+    })
+    .then(res => res.json())
+    .then(cloudData => {
+      clearTimeout(loadingTimeout);
+      setFbDocId(cloudData._id); // Map _id to fbDocId for diagnostics
+      
+      if (!cloudData.settings) cloudData.settings = defaultData.settings;
+      if (!cloudData.settings.pinnedTools) cloudData.settings.pinnedTools = [];
+      if (!cloudData.settings.shopName) cloudData.settings.shopName = 'Autonex';
+      if (!cloudData.appStatus) cloudData.appStatus = 'active';
 
-          if (!Array.isArray(cloudData.pages)) cloudData.pages = [];
-          if (!Array.isArray(cloudData.entries)) cloudData.entries = [];
-          if (!Array.isArray(cloudData.bills)) cloudData.bills = [];
-          if (!cloudData.settings.productPassword) cloudData.settings.productPassword = '0000';
+      if (!Array.isArray(cloudData.pages)) cloudData.pages = [];
+      if (!Array.isArray(cloudData.entries)) cloudData.entries = [];
+      if (!Array.isArray(cloudData.bills)) cloudData.bills = [];
+      if (!cloudData.settings.productPassword) cloudData.settings.productPassword = '0000';
 
-          // Merge transient local state (previewUrl, uploading/progress/tempBlob, uploadFailed)
-          const localBills = (dataRef.current && dataRef.current.bills) ? dataRef.current.bills : [];
-          const localMap = new Map(localBills.map((b: any) => [b.id, b]));
+      const localBills = (dataRef.current && dataRef.current.bills) ? dataRef.current.bills : [];
+      const localMap = new Map(localBills.map((b: any) => [b.id, b]));
 
-          const mergedBills = (cloudData.bills || []).map((cb: any) => {
-            const local: any = localMap.get(cb.id);
-            if (!local) return cb;
-            return {
-              ...cb,
-              previewUrl: local.previewUrl || local.image || null,
-              uploading: local.uploading || false,
-              progress: typeof local.progress === 'number' ? local.progress : 0,
-              tempBlob: local.tempBlob,
-              uploadFailed: local.uploadFailed || false
-            };
-          });
+      const mergedBills = (cloudData.bills || []).map((cb: any) => {
+        const local: any = localMap.get(cb.id);
+        if (!local) return cb;
+        return {
+          ...cb,
+          previewUrl: local.previewUrl || local.image || null,
+          uploading: local.uploading || false,
+          progress: typeof local.progress === 'number' ? local.progress : 0,
+          tempBlob: local.tempBlob,
+          uploadFailed: local.uploadFailed || false
+        };
+      });
 
-          // Include any local-only bills (not yet in cloud) at the front so they remain visible
-          const cloudIds = new Set((cloudData.bills || []).map((b: any) => b.id));
-          const localOnly = localBills.filter((b: any) => !cloudIds.has(b.id));
+      const cloudIds = new Set((cloudData.bills || []).map((b: any) => b.id));
+      const localOnly = localBills.filter((b: any) => !cloudIds.has(b.id));
 
-          const finalData = { ...cloudData, bills: [...localOnly, ...mergedBills] } as AppDataType;
+      const finalData = { ...cloudData, bills: [...localOnly, ...mergedBills] } as AppDataType;
 
-          setData(finalData);
-        } else {
-          // New user - create default document and set data immediately
-          setDoc(doc(db, "appData", user.uid), defaultData, { merge: true })
-            .then(() => {
-              console.info('Created default data for new user');
-            })
-            .catch((err) => {
-              console.error('Failed to create default data:', err);
-            });
-          // Set default data immediately so UI doesn't wait
-          setData(defaultData);
-          setDbLoading(false);
-        }
-      } catch (err) {
-        console.error("Data Processing Error:", err);
-        // ✅ FIX: Try restoring from local backup instead of resetting to empty defaults
-        try {
-          const backupRaw = localStorage.getItem('dukan:backup');
-          if (backupRaw) {
-            const backupData = JSON.parse(backupRaw);
-            console.info('Restored data from local backup after processing error');
-            setData(backupData);
-          } else {
-            setData(defaultData);
-          }
-        } catch (backupErr) {
-          console.error('Backup restore also failed:', backupErr);
-          setData(defaultData);
-        }
-      } finally {
-        setDbLoading(false);
-      }
-    }, (error) => {
+      setData(finalData);
+      setDbLoading(false);
+    })
+    .catch(error => {
       clearTimeout(loadingTimeout);
       console.error("DB Error:", error);
-      // ✅ FIX: Show error to user and try backup restore instead of silent blank state
-      const errMsg = error?.code === 'permission-denied'
-        ? 'Permission denied. Try re-login.'
-        : 'Database connection error.';
-      showToast(t(errMsg), 'error');
+      showToast(t('Database connection error.'), 'error');
       try {
         const backupRaw = localStorage.getItem('dukan:backup');
         if (backupRaw) {
@@ -1650,11 +1629,11 @@ function DukanRegister() {
       }
       setDbLoading(false);
     });
+
     return () => {
       clearTimeout(loadingTimeout);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      unsubDb();
     };
   }, [user]);
 
@@ -1662,25 +1641,33 @@ function DukanRegister() {
     e.preventDefault();
     if (!email || !password) { showToast("Please fill details", "error"); return; }
     try {
+      const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
+      const res = await fetch(`http://localhost:5000${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || 'Authentication failed');
+      
+      localStorage.setItem('autohub_token', data.token);
+      setUser({ email: data.email, uid: data.uid });
+      
       if (isRegistering) {
-        await createUserWithEmailAndPassword(auth, email, password);
         showToast("Account Created!");
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
       }
-    } catch (error) { showToast(error.message, "error"); }
+    } catch (error) { 
+      showToast(error.message, "error"); 
+    }
   };
 
   const handleLogout = () => {
-    triggerConfirm("Logout?", "Are you sure you want to Logout?", true, async () => {
-      // ✅ FIX: Await signOut to prevent onSnapshot race (firing after data reset)
-      try {
-        await signOut(auth);
-      } catch (e) {
-        console.warn('SignOut error:', e);
-        showToast('Logout failed, try again', 'error');
-        return;
-      }
+    triggerConfirm("Logout?", "Are you sure you want to Logout?", true, () => {
+      localStorage.removeItem('autohub_token');
+      setUser(null);
       setData(defaultData);
       setEmail(''); setPassword('');
     });
@@ -1695,22 +1682,25 @@ function DukanRegister() {
     // Also update local backup immediately so we never lose data
     try { localStorage.setItem('dukan:backup', JSON.stringify(payload)); } catch { /* noop */ }
 
-    const docRef = doc(db, "appData", user.uid);
-
-    // Try to write with retries; fall back to queued local writes on persistent failure
+    // Try to write to backend API with retries
     const tryWrite = async (attempts = 3) => {
       for (let i = 1; i <= attempts; i++) {
         try {
-          // Use updateDoc (field-level merge) — only touches keys present in payload
-          // Unlike setDoc+merge, this NEVER creates a new doc, so it's safer
-          await updateDoc(docRef, payload);
+          const res = await fetch('http://localhost:5000/api/data/sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('autohub_token')}`
+            },
+            body: JSON.stringify(payload)
+          });
+          
+          if (!res.ok) {
+             const data = await res.json();
+             throw new Error(data.error || 'Failed to sync');
+          }
           return true;
         } catch (err: any) {
-          // If doc doesn't exist yet (new user), fall back to setDoc
-          if (err?.code === 'not-found') {
-            await setDoc(docRef, payload, { merge: true });
-            return true;
-          }
           const msg = String(err?.message || err);
           console.warn(`pushToFirebase attempt ${i} failed:`, msg);
           if (i === attempts) throw err;
@@ -1723,7 +1713,7 @@ function DukanRegister() {
     try {
       const res = await tryWrite(3);
       return res;
-    } catch (err) {
+    } catch (err: any) {
       // Queue for later sync
       try {
         const key = 'dukan:pendingWrites';
@@ -1751,8 +1741,15 @@ function DukanRegister() {
       const remaining = [];
       for (const item of list) {
         try {
-          // ✅ FIX: Use updateDoc for pending writes — safer than setDoc for stale data
-          await updateDoc(doc(db, 'appData', user.uid), item.data);
+          const res = await fetch('http://localhost:5000/api/data/sync', {
+             method: 'POST',
+             headers: {
+               'Content-Type': 'application/json',
+               'Authorization': `Bearer ${localStorage.getItem('autohub_token')}`
+             },
+             body: JSON.stringify(item.data)
+          });
+          if (!res.ok) throw new Error('Failed to sync');
         } catch {
           const attempts = (item.attempts || 0) + 1;
           if (attempts >= 5) {
@@ -1895,12 +1892,12 @@ function DukanRegister() {
     // Create a local preview so the user sees the photo immediately
     const previewUrl = URL.createObjectURL(file);
     const timestamp = Date.now();
-    const storagePath = user ? `bills/${user.uid}/${timestamp}.jpg` : null;
+    // temporary unique id for frontend
     const tempBill = {
       id: timestamp,
       date: new Date().toISOString(),
       image: previewUrl, // local preview
-      path: storagePath,
+      path: null,
       uploading: true,
       progress: 0,
       originalFile: file
@@ -1932,9 +1929,9 @@ function DukanRegister() {
     }
     showToast("Processing & Uploading...");
 
-    // Use resumable upload below to track progress and allow retries
+    // Use custom backend API for upload to Cloudinary
     try {
-      if (!storagePath) {
+      if (!user) {
         // No authenticated user to own the upload path
         setData(prev => ({ ...prev, bills: prev.bills.map(b => b.id === timestamp ? { ...b, uploading: false, uploadFailed: true } : b) }));
         showToast('Sign in to upload bills', 'error');
@@ -1946,37 +1943,43 @@ function DukanRegister() {
         try {
           const compressedBlob = await compressImage(file) as Blob;
           console.log('Compressed blob size:', compressedBlob.size);
-          const storageRef = ref(storage, storagePath);
-
-          // Use resumable upload to track progress
-          const uploadTask = uploadBytesResumable(storageRef, compressedBlob);
-
+          
           // Attach temp bill with compressed blob for potential retry
           setData(prev => ({ ...prev, bills: prev.bills.map(b => b.id === timestamp ? { ...b, tempBlob: compressedBlob } : b) }));
+          
+          const formData = new FormData();
+          formData.append('bill', compressedBlob, file.name);
 
-          uploadTask.on('state_changed', (snapshot) => {
-            const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-            setData(prev => ({ ...prev, bills: prev.bills.map(b => b.id === timestamp ? { ...b, progress } : b) }));
-          }, (error) => {
-            console.error('Upload failed', error);
-            setData(prev => ({ ...prev, bills: prev.bills.map(b => b.id === timestamp ? { ...b, uploading: false, uploadFailed: true } : b) }));
-            showToast('Upload Failed', 'error');
-          }, async () => {
-            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-            // ✅ FIX: Use dataRef.current (latest state) instead of stale closure 'data'
-            // This prevents overwriting entries/pages/settings changed during upload
-            const latestData = dataRef.current;
-            const updatedBills = (latestData.bills || []).map(b =>
-              b.id === timestamp
-                ? { id: timestamp, date: new Date().toISOString(), image: downloadUrl, path: storagePath }
-                : b
-            );
-            // Only push the bills field via updateDoc to avoid touching other fields
-            await pushToFirebase({ ...latestData, bills: updatedBills });
-            setData(prev => ({ ...prev, bills: updatedBills }));
-            try { URL.revokeObjectURL(previewUrl); } catch (e) { console.warn('Revoke failed', e); }
-            showToast('Bill Saved!');
+          // We don't have progress tracking with simple fetch natively easily without XHR, so just update it immediately
+          setData(prev => ({ ...prev, bills: prev.bills.map(b => b.id === timestamp ? { ...b, progress: 99 } : b) }));
+          
+          const res = await fetch('http://localhost:5000/api/upload/bill', {
+             method: 'POST',
+             headers: {
+                 'Authorization': `Bearer ${localStorage.getItem('autohub_token')}`
+             },
+             body: formData
           });
+          
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Upload failed');
+          
+          const downloadUrl = data.imageUrl;
+          const cloudPath = data.path; // Cloudinary public_id
+
+          // ✅ FIX: Use dataRef.current (latest state) instead of stale closure 'data'
+          // This prevents overwriting entries/pages/settings changed during upload
+          const latestData = dataRef.current;
+          const updatedBills = (latestData.bills || []).map(b =>
+            b.id === timestamp
+              ? { id: timestamp, date: new Date().toISOString(), image: downloadUrl, path: cloudPath, uploading: false }
+              : b
+          );
+          // Only push the bills field via updateDoc to avoid touching other fields
+          await pushToFirebase({ ...latestData, bills: updatedBills });
+          setData(prev => ({ ...prev, bills: updatedBills }));
+          try { URL.revokeObjectURL(previewUrl); } catch (e) { console.warn('Revoke failed', e); }
+          showToast('Bill Saved!');
         } catch (err) {
           console.error('Scheduled upload failed', err);
           setData(prev => ({ ...prev, bills: prev.bills.map(b => b.id === timestamp ? { ...b, uploading: false, uploadFailed: true } : b) }));
@@ -2024,7 +2027,15 @@ function DukanRegister() {
   const deleteWithRetry = useCallback(async (storagePath, maxAttempts = 3) => {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        await deleteObject(ref(storage, storagePath));
+        const res = await fetch('http://localhost:5000/api/upload/bill', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('autohub_token')}`
+          },
+          body: JSON.stringify({ path: storagePath })
+        });
+        if (!res.ok) throw new Error('Delete failed');
         return true;
       } catch (e) {
         console.warn(`Delete attempt ${attempt} failed for ${storagePath}`, e);
