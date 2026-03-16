@@ -19,12 +19,14 @@ interface Supplier {
   history?: SupplierHistory[];
 }
 
-export const SupplierLedger: React.FC<{ isDark: boolean; t: (key: string) => string; onBack: () => void }> = ({ isDark, t, onBack }) => {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([
-    { id: 1, name: 'Bosch Distributors', phone: '9876543210', balance: -45000, lastTxn: '2024-03-10', status: 'to-pay', history: [{id:1, date: '2024-03-10', amount:-45000, type:'paid', note:'Inv #100'}] },
-    { id: 2, name: 'Amaron Agency', phone: '9988776655', balance: 12000, lastTxn: '2024-03-12', status: 'to-receive', history: [{id:2, date: '2024-03-12', amount:12000, type:'received', note:'Returns'}] },
-    { id: 3, name: 'Lumax Spare Parts', phone: '9123412345', balance: 0, lastTxn: '2024-03-01', status: 'settled', history: [] }
-  ]);
+export const SupplierLedger: React.FC<{ isDark: boolean; t: (key: string) => string; onBack: () => void; data?: any; onUpdateData?: (newData: any) => void; }> = ({ isDark, t, onBack, data, onUpdateData }) => {
+  const suppliers = data?.supplierLedger || [];
+  const setSuppliers = (newSuppliers: Supplier[]) => {
+      if (onUpdateData) {
+          onUpdateData({ supplierLedger: newSuppliers });
+      }
+  };
+
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   

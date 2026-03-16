@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, UserPlus, Phone, MessageCircle, Calendar, Plus, Search, ChevronRight, Calculator, X, User, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import { ArrowLeft, UserPlus, Phone, MessageCircle, Calendar, Plus, Search, ChevronRight, Calculator, X, User, ArrowDownCircle, ArrowUpCircle, Trash2 } from 'lucide-react';
 import { BarcodeScanner } from './BarcodeScanner';
 
 interface CustomerHistory {
@@ -19,12 +19,14 @@ interface Customer {
     history: CustomerHistory[];
 }
 
-export const CustomerUdhaar: React.FC<{ isDark: boolean; t: (key: string) => string; onBack: () => void }> = ({ isDark, t, onBack }) => {
-  const [customers, setCustomers] = useState<Customer[]>([
-    { id: 1, name: 'Rahul Sharma', phone: '9898989898', balance: 4500, lastUpdate: '2023-11-20', history: [] },
-    { id: 2, name: 'Vikram Motors', phone: '9123412340', balance: 12500, lastUpdate: '2023-11-18', history: [] },
-    { id: 3, name: 'Sanjay Singh', phone: '9988776655', balance: 800, lastUpdate: '2023-11-15', history: [] },
-  ]);
+export const CustomerUdhaar: React.FC<{ isDark: boolean; t: (key: string) => string; onBack: () => void; data?: any; onUpdateData?: (newData: any) => void; }> = ({ isDark, t, onBack, data, onUpdateData }) => {
+  const customers = data?.udhaarCustomers || [];
+  const setCustomers = (newCustomers: Customer[]) => {
+      if (onUpdateData) {
+          const totalDue = newCustomers.reduce((acc, c) => acc + c.balance, 0);
+          onUpdateData({ udhaarCustomers: newCustomers, udhaarDue: totalDue });
+      }
+  };
 
   const [search, setSearch] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -89,6 +91,13 @@ export const CustomerUdhaar: React.FC<{ isDark: boolean; t: (key: string) => str
     setTxnNote('');
   };
 
+  const handleDeleteCustomer = (id: number) => {
+    if (window.confirm("Are you sure you want to delete this customer?")) {
+      setCustomers(customers.filter(c => c.id !== id));
+      setSelectedCustId(null);
+    }
+  };
+
   if (selectedCustomer) {
       // Detailed View
       return (
@@ -97,10 +106,13 @@ export const CustomerUdhaar: React.FC<{ isDark: boolean; t: (key: string) => str
                   <button onClick={() => setSelectedCustId(null)} className="p-2 bg-gray-200 dark:bg-gray-800 rounded-full hover:bg-gray-300 transition-colors shadow-sm">
                       <ArrowLeft size={20} />
                   </button>
-                  <div>
+                  <div className="flex-1">
                       <h2 className="text-2xl font-bold">{selectedCustomer.name}</h2>
                       <p className="text-sm text-gray-500 flex items-center gap-1"><Phone size={12}/> {selectedCustomer.phone}</p>
                   </div>
+                  <button onClick={() => handleDeleteCustomer(selectedCustomer.id)} className="p-2 bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 rounded-full hover:bg-red-200 transition-colors shadow-sm" title="Delete Customer">
+                      <Trash2 size={20} />
+                  </button>
               </div>
 
               <div className={`p-6 rounded-3xl mb-6 text-center shadow-lg border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>

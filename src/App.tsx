@@ -26,6 +26,7 @@ import { performSmartSearch } from './lib/search';
 import { exactDictionary, synonymMap, soundMap } from './data/dictionaries';
 import ToolsHub from './components/ToolsHub';
 import { ItemsPage } from './components/ItemsPage';
+import { DailySales } from './components/DailySales';
 
 import { TranslateBtn } from './components/TranslateBtn';
 import { RecentNotesWidget } from './components/RecentNotesWidget';
@@ -2640,34 +2641,48 @@ function DukanRegister() {
 
       {/* 3. KPI Cards Row */}
       <div className="px-4 pt-5 pb-2 overflow-x-auto hide-scrollbar flex gap-3">
-        <div className="min-w-[145px] bg-[#FFFFFF] dark:bg-slate-800 p-4 rounded-[16px] border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform" onClick={() => { setView('pagesGrid'); }}>
+        <div className="min-w-[145px] bg-[#FFFFFF] dark:bg-slate-800 p-4 rounded-[16px] border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform cursor-pointer" onClick={() => { setView('dailySales'); }}>
           <div className="flex items-center gap-1.5 text-[#556077] dark:text-slate-400 mb-1">
             <TrendingDown size={14} className="text-[#17B890] transform rotate-180" />
             <span className="text-[12px] font-semibold">{t("Today's Sales")}</span>
           </div>
-          <div className="text-[22px] font-bold text-[#0F1724] dark:text-white leading-tight mb-1">₹20,500</div>
+          <div className="text-[22px] font-bold text-[#0F1724] dark:text-white leading-tight mb-1">₹{(() => {
+            const today = new Date().toISOString().split('T')[0];
+            const todaysEvents = (data.salesEvents || []).filter(e => e.type === 'sale' && e.date.startsWith(today));
+            const total = todaysEvents.reduce((acc, ev) => {
+              let price = 0;
+              if (ev.manualPrice !== undefined) {
+                price = Number(ev.manualPrice);
+              } else {
+                const entry = (data.entries || []).find(x => x.id === ev.entryId);
+                price = entry && entry.sPrice ? Number(entry.sPrice) : 0;
+              }
+              return acc + (ev.qty * price);
+            }, 0);
+            return total.toLocaleString();
+          })()}</div>
           <div className="text-[11px] font-bold text-[#17B890] flex items-center gap-0.5 mt-2">
-            <ArrowUp size={12} strokeWidth={3}/> 12% vs Yesterday
+            <ArrowUp size={12} strokeWidth={3}/> View Detail
           </div>
         </div>
 
-        <div className="min-w-[145px] bg-[#FFFFFF] dark:bg-slate-800 p-4 rounded-[16px] border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform" onClick={() => setAlertTab('stock')}>
+        <div className="min-w-[145px] bg-[#FFFFFF] dark:bg-slate-800 p-4 rounded-[16px] border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform cursor-pointer" onClick={() => { setAlertTab('stock'); setView('alerts'); }}>
           <div className="flex items-center gap-1.5 text-[#F57C00] mb-1">
             <AlertTriangle size={14} />
             <span className="text-[12px] font-semibold">{t("Low Stock")}</span>
           </div>
-          <div className="text-[22px] font-bold text-[#0F1724] dark:text-white leading-tight mb-1">15 Items</div>
+          <div className="text-[22px] font-bold text-[#0F1724] dark:text-white leading-tight mb-1">{(data.entries || []).filter(e => e.qty < (data.settings?.limit || 5)).length} Items</div>
           <div className="text-[11px] font-bold text-[#FF7A18] flex items-center gap-0.5 mt-2">
             View Alerts <ChevronRight size={12}/>
           </div>
         </div>
 
-        <div className="min-w-[145px] bg-[#FFFFFF] dark:bg-slate-800 p-4 rounded-[16px] border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform" onClick={() => { setActiveToolId('udhaar'); setView('tools'); }}>
+        <div className="min-w-[145px] bg-[#FFFFFF] dark:bg-slate-800 p-4 rounded-[16px] border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform cursor-pointer" onClick={() => { setActiveToolId('udhaar'); setView('tools'); }}>
           <div className="flex items-center gap-1.5 text-[#2F80ED] mb-1">
             <FileText size={14} />
             <span className="text-[12px] font-semibold text-[#556077] dark:text-slate-400">{t("Pending Due")}</span>
           </div>
-          <div className="text-[22px] font-bold text-[#0F1724] dark:text-white leading-tight mb-1">₹45,000</div>
+          <div className="text-[22px] font-bold text-[#0F1724] dark:text-white leading-tight mb-1">₹{data.udhaarDue ? data.udhaarDue.toLocaleString() : '0'}</div>
           <div className="text-[11px] font-bold text-[#2F80ED] flex items-center gap-0.5 mt-2">
             Collect Now <ChevronRight size={12}/>
           </div>
@@ -3363,7 +3378,17 @@ function DukanRegister() {
 
       {/* Bills view removed */}
 
-      {view === 'tools' && <ToolsHub onBack={() => { setView(previousView || 'settings'); setInitialNoteId(null); setActiveToolId(null); }} t={t} isDark={isDark} initialTool={activeToolId} initialNoteId={initialNoteId} pinnedTools={data.settings.pinnedTools || []} onTogglePin={handleTogglePin} shopDetails={data.settings} data={data} />}
+      {view === 'tools' && <ToolsHub onBack={() => { setView(previousView || 'settings'); setInitialNoteId(null); setActiveToolId(null); }} t={t} isDark={isDark} initialTool={activeToolId} initialNoteId={initialNoteId} pinnedTools={data.settings.pinnedTools || []} onTogglePin={handleTogglePin} shopDetails={data.settings} data={data} onUpdateData={async (newData) => {
+        const updated = { ...data, ...newData };
+        setData(updated);
+        await pushToFirebase(updated);
+      }} />}
+
+      {view === 'dailySales' && <DailySales onBack={() => setView('generalIndex')} t={t} isDark={isDark} data={data} onUpdateData={async (newData) => {
+        const updated = { ...data, ...newData };
+        setData(updated);
+        await pushToFirebase(updated);
+      }} />}
 
 
       {renderSaveButton()}

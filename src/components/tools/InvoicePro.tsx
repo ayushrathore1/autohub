@@ -25,10 +25,7 @@ export const InvoicePro = ({ onBack, shopName, t, data }) => {
   
   const filteredInventory = React.useMemo(() => { if (!data || !data.pages) return []; return data.pages.filter(p => p.itemName && p.itemName.toLowerCase().includes((newItem.name || "").toLowerCase())); }, [data, newItem.name]);
 
-    const [items, setItems] = useState([
-    { id: 1, name: "Brake Pad", hsn: "871410", gst: 18, rate: 350, qty: 1, amount: 413, img: "pkg" },
-    { id: 2, name: "Engine Oil 1L", hsn: "271019", gst: 18, rate: 500, qty: 1, amount: 590, img: "pkg" }
-  ]);
+const [items, setItems] = useState([]);
 
   const subtotal = items.reduce((acc, item) => acc + (item.rate * item.qty), 0);
   const totalGst = items.reduce((acc, item) => acc + (item.amount - (item.rate * item.qty)), 0);

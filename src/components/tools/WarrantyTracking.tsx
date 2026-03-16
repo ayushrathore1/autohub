@@ -13,12 +13,13 @@ interface Warranty {
     status: string;
 }
 
-export const WarrantyTracking: React.FC<{ isDark: boolean; t: (key: string) => string; onBack: () => void }> = ({ isDark, t, onBack }) => {
-  const [warranties, setWarranties] = useState<Warranty[]>([
-    { id: 1, customer: 'Rahul Sharma', phone: '9898989898', item: 'Amaron Battery 45Ah', serialNo: 'AMR-998877', purchaseDate: '2023-11-15', expiryDate: '2026-11-15', status: 'active' },
-    { id: 2, customer: 'Vikram Singh', phone: '9123412340', item: 'Bosch Wiper Blades', serialNo: 'BSH-112233', purchaseDate: '2024-01-10', expiryDate: '2024-07-10', status: 'expiring-soon' },
-    { id: 3, customer: 'Sanjay Motors', phone: '9988776655', item: 'Exide Din60', serialNo: 'EXI-445566', purchaseDate: '2020-01-15', expiryDate: '2024-01-15', status: 'expired' }
-  ]);
+export const WarrantyTracking: React.FC<{ isDark: boolean; t: (key: string) => string; onBack: () => void; data?: any; onUpdateData?: (newData: any) => void; }> = ({ isDark, t, onBack, data, onUpdateData }) => {
+  const warranties = data?.warranties || [];
+  const setWarranties = (newWarranties: Warranty[]) => {
+      if (onUpdateData) {
+          onUpdateData({ warranties: newWarranties });
+      }
+  };
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');

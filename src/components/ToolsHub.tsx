@@ -51,9 +51,10 @@ interface ToolsHubProps {
     onTogglePin?: (toolId: string) => void;
     shopDetails: ShopDetails;
     data: AppData;
+    onUpdateData?: (newData: Partial<AppData>) => void;
 }
 
-const ToolsHub: React.FC<ToolsHubProps> = ({ onBack, t, isDark, initialTool = null, initialNoteId = null, pinnedTools, onTogglePin, shopDetails, data }) => {
+const ToolsHub: React.FC<ToolsHubProps> = ({ onBack, t, isDark, initialTool = null, initialNoteId = null, pinnedTools, onTogglePin, shopDetails, data, onUpdateData }) => {
     const [activeTool, setActiveTool] = useState<string | null>(initialTool);
     const openedDirectlyRef = useRef(!!initialTool);
 
@@ -175,10 +176,10 @@ const ToolsHub: React.FC<ToolsHubProps> = ({ onBack, t, isDark, initialTool = nu
             case 'card': return <DigitalBusinessCard shopDetails={shopDetails} t={t} isDark={isDark} onBack={handleBackFromTool} />;
             case 'notes': return <NoteMaster t={t} isDark={isDark} initialNoteId={initialNoteId} onBack={handleBackFromTool} />;
             case 'quotation': return <QuotationMaker t={t} shopDetails={shopDetails} data={data} isDark={isDark} onBack={handleBackFromTool} />;
-            case 'supplier': return <SupplierLedger isDark={isDark} t={t} onBack={handleBackFromTool} />;
-            case 'udhaar': return <CustomerUdhaar isDark={isDark} t={t} onBack={handleBackFromTool} />;
+            case 'supplier': return <SupplierLedger isDark={isDark} t={t} onBack={handleBackFromTool} data={data} onUpdateData={onUpdateData} />;
+            case 'udhaar': return <CustomerUdhaar isDark={isDark} t={t} onBack={handleBackFromTool} data={data} onUpdateData={onUpdateData} />;
             case 'analytics': return <AnalyticsDashboard isDark={isDark} t={t} onBack={handleBackFromTool} />;
-            case 'warranty': return <WarrantyTracking isDark={isDark} t={t} onBack={handleBackFromTool} />;
+            case 'warranty': return <WarrantyTracking isDark={isDark} t={t} onBack={handleBackFromTool} data={data} onUpdateData={onUpdateData} />;
             case 'import': return <DataImportExport isDark={isDark} t={t} onBack={handleBackFromTool} />;
 
             case 'basicCalc': {
