@@ -1,12 +1,16 @@
+import VoiceInput from '../VoiceInput';
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Share2, MoreVertical, Calendar, Phone, Search, ScanBarcode, User, Plus, Trash2, Edit2, FileText, ChevronDown, Percent, Package, X, CheckCircle, Smartphone, CheckCircle2, MessageSquare, Download, Camera, XCircle, Loader2 } from "lucide-react";
+import { BarcodeScanner } from './BarcodeScanner';
 
-export const InvoicePro = ({ onBack, shopName, t, data }) => {
+export const InvoicePro = ({ onBack, shopName, t, data, isDark, onUpdateData }) => {
   const [invoiceNumber] = useState(Date.now().toString().slice(-6));
   const [date] = useState(new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }));
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [customerType, setCustomerType] = useState("Walk-in Customer");
   const [mobile, setMobile] = useState("");
+  const lastScannedVehicle = data?.lastScannedVehicle;
+  const canUseLastScanned = !!lastScannedVehicle?.regNo;
   
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -36,6 +40,21 @@ const [items, setItems] = useState([]);
     setTimeout(() => setToast(""), 3000);
   };
 
+  const handleUseLastScanned = () => {
+    if (!lastScannedVehicle) return;
+    if (lastScannedVehicle.customerPhone) {
+      setMobile(String(lastScannedVehicle.customerPhone));
+    }
+    setCustomerType("Regular Customer");
+    showToast(`Linked vehicle ${lastScannedVehicle.regNo}`);
+  };
+
+  const handleClearLastScanned = () => {
+    if (!onUpdateData) return;
+    onUpdateData({ lastScannedVehicle: null });
+    showToast('Removed last scanned vehicle');
+  };
+
   const handleGenerate = () => {
     setIsGenerating(true);
     setTimeout(() => {
@@ -46,14 +65,9 @@ const [items, setItems] = useState([]);
 
   const handleScanner = () => {
     setIsScanning(true);
-    setTimeout(() => {
-      setIsScanning(false);
-      setItems([...items, { id: Date.now(), name: "Scanned Spark Plug", hsn: "8511", gst: 28, rate: 250, qty: 1, amount: 320 }]);
-      showToast("Scanned Item Added successfully!");
-    }, 2000);
   };
 
-  const shareText = `Bill from ${shopName || "Our Shop"}\nInv No: #${invoiceNumber}\nAmount: ₹${total.toFixed(2)}\nDate: ${date}\nThank you for shopping!`;
+  const shareText = `Bill from ${shopName || "Our Shop"}\nInv No: #${invoiceNumber}\nAmount: ₹${total.toFixed(2)}\nDate: ${date}${canUseLastScanned ? `\nVehicle: ${lastScannedVehicle.regNo}` : ''}\nThank you for shopping!`;
 
   const handleShareWhatsapp = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
@@ -81,7 +95,7 @@ const [items, setItems] = useState([]);
       showToast("Please enter item name and rate!");
       return;
     }
-    const rate = parseFloat(newItem.rate);
+    const rate = parseFloat(String(newItem.rate));
     const amount = (rate * newItem.qty) * (1 + (newItem.gst / 100));
     setItems([...items, { ...newItem, rate, amount, id: Date.now(), hsn: "0000" }]);
     setNewItem({ name: "", qty: 1, rate: 0, gst: 18 });
@@ -105,17 +119,24 @@ const [items, setItems] = useState([]);
 
       {/* Scanner Loading Visual Modal */}
       {isScanning && (
-        <div className="absolute inset-0 bg-black/95 z-[60] flex flex-col items-center justify-center animate-in fade-in zoom-in-95">
-             <div className="text-white mb-10 text-[18px] font-bold flex items-center gap-2">
-                 <Camera className="animate-pulse" /> Scanning Barcode...
-             </div>
-             <div className="relative w-64 h-64 border-2 border-white/20 rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(34,197,94,0.2)] bg-black/50 backdrop-blur-md">
-                <div className="absolute top-1/2 left-0 right-0 h-[2px] bg-[#22c55e] animate-ping shadow-[0_0_15px_#22c55e]"></div>
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#22c55e]/10 to-transparent"></div>
-             </div>
-             <button onClick={() => setIsScanning(false)} className="mt-16 bg-white/10 hover:bg-white/20 px-8 py-3 rounded-full text-white backdrop-blur-md font-medium flex items-center gap-2 transition-all">
-                <XCircle size={20} /> Cancel Scan
-             </button>
+        <div className="absolute inset-0 bg-black/90 z-[60] flex flex-col items-center justify-center animate-in fade-in">
+          <div className="text-white mb-6 text-[18px] font-bold flex items-center gap-2">
+            <Camera className="animate-pulse" /> Scan Barcode
+          </div>
+          <div className="w-full max-w-md h-72 bg-black rounded-3xl overflow-hidden border border-white/10 shadow-[0_0_50px_rgba(34,197,94,0.2)]">
+            <BarcodeScanner
+              onScan={(scanned) => {
+                setIsScanning(false);
+                if (!scanned) return;
+                setItems(prev => [...prev, { id: Date.now(), name: `Scanned ${scanned}`, hsn: "0000", gst: 18, rate: 0, qty: 1, amount: 0 }]);
+                showToast("Scanned item added. Please set rate.");
+              }}
+              onClose={() => setIsScanning(false)}
+            />
+          </div>
+          <button onClick={() => setIsScanning(false)} className="mt-6 bg-white/10 hover:bg-white/20 px-8 py-3 rounded-full text-white backdrop-blur-md font-medium flex items-center gap-2 transition-all">
+            <XCircle size={20} /> Cancel Scan
+          </button>
         </div>
       )}
 
@@ -172,6 +193,11 @@ const [items, setItems] = useState([]);
           <div>
             <h2 className="text-[20px] font-bold text-[#5B5CEB] uppercase tracking-wide">{shopName || "AUTONEX"}</h2>
             <p className="text-[13px] text-[#556077]">Retail Invoice</p>
+            {canUseLastScanned && (
+              <div className="mt-2 inline-flex items-center gap-2 bg-[#F6F7FB] border border-gray-100 text-[#0F1724] px-2.5 py-1 rounded-full text-[11px] font-bold">
+                Vehicle: {lastScannedVehicle.regNo}
+              </div>
+            )}
           </div>
           <div className="flex flex-col items-end gap-2">
             <button onClick={() => showToast("Tap to open Device Calendar...")} className="flex items-center gap-1.5 bg-[#F6F7FB] active:bg-gray-200 text-[#556077] px-3 py-1 rounded-lg text-[13px] font-medium transition-colors">
@@ -194,6 +220,21 @@ const [items, setItems] = useState([]);
               {customerType} <ChevronDown size={16} className="text-[#556077]"/>
             </button>
           </div>
+          {canUseLastScanned && (
+            <div className="flex items-center justify-between mb-3 bg-[#F6F7FB] border border-gray-100 rounded-[12px] px-3 py-2">
+              <div className="text-[12px] text-[#556077] font-semibold">
+                Last scanned: <span className="text-[#0F1724] font-bold">{lastScannedVehicle.regNo}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={handleUseLastScanned} className="text-[12px] font-bold text-[#5B5CEB] hover:text-[#4A4BDB]">
+                  Use Vehicle
+                </button>
+                <button onClick={handleClearLastScanned} className="text-[12px] font-bold text-red-500 hover:text-red-600">
+                  Remove
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-3">
             <div className="flex-1 relative flex items-center">
               <div className="absolute left-3 text-[#17B890]">
@@ -224,6 +265,7 @@ const [items, setItems] = useState([]);
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
+                <div className="absolute right-12 top-1.5 z-10"><VoiceInput onResult={setSearchTerm} isDark={isDark} /></div>
             </div>
             <button onClick={handleScanner} className="w-[48px] h-[48px] rounded-[12px] bg-gradient-to-r from-[#6B46FF] to-[#5B5CEB] text-white flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(91,92,235,0.3)] active:scale-95 transition-transform">
               <ScanBarcode size={22} />

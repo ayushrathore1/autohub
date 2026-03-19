@@ -1,3 +1,4 @@
+import VoiceInput from '../VoiceInput';
 ﻿import React, { useState, useMemo } from 'react';
 import { ArrowLeft, BookOpen, Search, Plus, Filter, ArrowUpRight, ArrowDownRight, User, Phone, MapPin, ChevronRight, X, Calendar, Download } from 'lucide-react';
 
@@ -184,6 +185,7 @@ export const SupplierLedger: React.FC<{ isDark: boolean; t: (key: string) => str
                 placeholder="Search suppliers..."
                 value={search} onChange={e => setSearch(e.target.value)}
             />
+                <div className="absolute right-12 top-1.5 z-10"><VoiceInput onResult={setSearch} isDark={isDark} /></div>
         </div>
         <button className={`p-3 rounded-xl border transition-colors ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-300'}`}>
             <Filter size={20} className="text-gray-500" />

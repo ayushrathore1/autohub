@@ -1,6 +1,15 @@
-﻿import { BarChart2, CreditCard, Package, Shield, ScanBarcode, Calculator, FileText, Percent, DollarSign, RefreshCcw, Activity, StickyNote } from 'lucide-react';
+﻿import { Languages, BarChart2, CreditCard, Package, Shield, ScanBarcode, Calculator, FileText, Percent, DollarSign, RefreshCcw, Activity, StickyNote, Car, ClipboardList, Users } from 'lucide-react';
 
 export const DASHBOARD_TOOLS = [
+  { id: 'crm', name: 'Customer\nCRM', icon: Users, color: 'blue',
+    dark: { bg: 'bg-gradient-to-br from-blue-900/50 to-cyan-900/50', border: 'border-blue-500/30 hover:border-blue-400', blur: 'bg-blue-400', icon: 'bg-blue-500/20 text-blue-400', text: 'text-blue-400', heading: 'text-white' },
+    light: { bg: 'bg-gradient-to-br from-blue-50 to-cyan-50', border: 'border-blue-200 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-200/50', blur: 'bg-blue-500', icon: 'bg-blue-100 text-blue-600', text: 'text-blue-600', heading: 'text-blue-950' } },
+  { id: 'jobcard', name: 'Job\nCards', icon: ClipboardList, color: 'orange',
+    dark: { bg: 'bg-gradient-to-br from-orange-900/50 to-red-900/50', border: 'border-orange-500/30 hover:border-orange-400', blur: 'bg-orange-400', icon: 'bg-orange-500/20 text-orange-400', text: 'text-orange-400', heading: 'text-white' },
+    light: { bg: 'bg-gradient-to-br from-orange-50 to-red-50', border: 'border-orange-200 hover:border-orange-300 hover:shadow-lg hover:shadow-orange-200/50', blur: 'bg-orange-500', icon: 'bg-orange-100 text-orange-600', text: 'text-orange-600', heading: 'text-orange-950' } },
+  { id: 'vehicle', name: 'Vehicle\nMaster', icon: Car, color: 'blue',
+    dark: { bg: 'bg-gradient-to-br from-blue-900/50 to-indigo-900/50', border: 'border-blue-500/30 hover:border-blue-400', blur: 'bg-blue-400', icon: 'bg-blue-500/20 text-blue-400', text: 'text-blue-400', heading: 'text-white' },
+    light: { bg: 'bg-gradient-to-br from-blue-50 to-indigo-50', border: 'border-blue-200 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-200/50', blur: 'bg-blue-500', icon: 'bg-blue-100 text-blue-600', text: 'text-blue-600', heading: 'text-blue-950' } },
   { id: 'analytics', name: 'Smart\nAnalytics', icon: BarChart2, color: 'indigo',
     dark: { bg: 'bg-gradient-to-br from-indigo-900/50 to-purple-900/50', border: 'border-indigo-500/30 hover:border-indigo-400', blur: 'bg-indigo-400', icon: 'bg-indigo-500/20 text-indigo-400', text: 'text-indigo-400', heading: 'text-white' },
     light: { bg: 'bg-gradient-to-br from-indigo-50 to-purple-50', border: 'border-indigo-200 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-200/50', blur: 'bg-indigo-500', icon: 'bg-indigo-100 text-indigo-600', text: 'text-indigo-600', heading: 'text-indigo-950' } },
@@ -46,4 +55,14 @@ export const DASHBOARD_TOOLS = [
   { id: 'notes', name: 'Smart\nNotes', icon: StickyNote, color: 'yellow',
     dark: { bg: 'bg-gradient-to-br from-yellow-900/50 to-orange-900/50', border: 'border-yellow-500/30 hover:border-yellow-400', blur: 'bg-yellow-400', icon: 'bg-yellow-500/20 text-yellow-400', text: 'text-yellow-400', heading: 'text-white' },
     light: { bg: 'bg-gradient-to-br from-yellow-50 to-orange-50', border: 'border-yellow-200 hover:border-yellow-300 hover:shadow-lg hover:shadow-yellow-200/50', blur: 'bg-yellow-500', icon: 'bg-yellow-100 text-yellow-600', text: 'text-yellow-600', heading: 'text-yellow-950' } },
+  ,{
+    id: 'translator',
+    name: 'Universal\nTranslator',
+    icon: Languages,
+    bg: 'bg-blue-100',
+    iconCol: 'text-blue-600 border-blue-200',
+    darkBg: 'dark:bg-blue-900/30',
+    dark: { bg: 'bg-blue-900/50', icon: 'text-blue-300' },
+    description: 'Translate text to any language'
+  }
 ];

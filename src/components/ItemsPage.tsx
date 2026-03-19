@@ -66,7 +66,7 @@ export const ItemsPage: React.FC<ItemsPageProps> = ({
     const visibleEntries = pageSearchTerm ? filteredEntries : filteredEntries.slice(0, displayLimit);
 
     return (
-        <div className={`pb-24 min-h-screen ${isDark ? 'bg-slate-950 text-white' : 'bg-white text-black'}`}>
+        <div className={`pb-24 min-h-screen animate-in fade-in slide-in-from-bottom-4 duration-300 ${isDark ? 'bg-slate-950 text-white' : 'bg-white text-black'}`}>
             <div className={`sticky top-0 z-10 border-b-2 shadow-sm ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-red-200'}`}>
                 <div className={`flex items-center p-3 ${isDark ? 'bg-slate-800' : 'bg-red-50'}`}>
                     <button aria-label={t("Go Back")} onClick={() => { setView('generalIndex'); setActivePageId(null); }} className="mr-2 p-2"><ArrowLeft /></button>

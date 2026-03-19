@@ -1,3 +1,4 @@
+import VoiceInput from '../VoiceInput';
 ﻿import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Shield, AlertTriangle, Plus, Calendar, Search, ScanBarcode, CheckCircle, X, User, Edit2 } from 'lucide-react';
 import { BarcodeScanner } from './BarcodeScanner';
@@ -15,6 +16,8 @@ interface Warranty {
 
 export const WarrantyTracking: React.FC<{ isDark: boolean; t: (key: string) => string; onBack: () => void; data?: any; onUpdateData?: (newData: any) => void; }> = ({ isDark, t, onBack, data, onUpdateData }) => {
   const warranties = data?.warranties || [];
+    const lastScannedVehicle = data?.lastScannedVehicle;
+    const canUseLastScanned = !!lastScannedVehicle?.regNo;
   const setWarranties = (newWarranties: Warranty[]) => {
       if (onUpdateData) {
           onUpdateData({ warranties: newWarranties });
@@ -111,6 +114,7 @@ export const WarrantyTracking: React.FC<{ isDark: boolean; t: (key: string) => s
                 placeholder="Search Serial No, Phone..."
                 value={search} onChange={e => setSearch(e.target.value)}
             />
+                <div className="absolute right-12 top-1.5 z-10"><VoiceInput onResult={setSearch} isDark={isDark} /></div>
             {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X size={16}/></button>}
         </div>
         <button
@@ -199,6 +203,20 @@ export const WarrantyTracking: React.FC<{ isDark: boolean; t: (key: string) => s
                       <button onClick={() => setIsModalOpen(false)} className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800"><X/></button>
                   </div>
                   <div className="space-y-3">
+                                            {canUseLastScanned && (
+                                                <button
+                                                    onClick={() => setFormData(prev => ({
+                                                        ...prev,
+                                                        customer: lastScannedVehicle.customerName || prev.customer,
+                                                        phone: lastScannedVehicle.customerPhone || prev.phone,
+                                                        item: prev.item || 'Vehicle',
+                                                        serialNo: lastScannedVehicle.regNo || prev.serialNo
+                                                    }))}
+                                                    className="w-full py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-bold text-sm hover:bg-emerald-100 transition-colors"
+                                                >
+                                                    Use last scanned vehicle ({lastScannedVehicle.regNo})
+                                                </button>
+                                            )}
                       <div>
                           <input className={`w-full p-3 rounded-xl border font-medium ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-300'}`} placeholder="Customer Name" value={formData.customer} onChange={e => setFormData({...formData, customer: e.target.value})} />
                       </div>

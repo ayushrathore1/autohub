@@ -1,3 +1,4 @@
+import VoiceInput from '../VoiceInput';
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft, UserPlus, Phone, MessageCircle, Calendar, Plus, Search, ChevronRight, Calculator, X, User, ArrowDownCircle, ArrowUpCircle, Trash2 } from 'lucide-react';
 import { BarcodeScanner } from './BarcodeScanner';
@@ -21,6 +22,8 @@ interface Customer {
 
 export const CustomerUdhaar: React.FC<{ isDark: boolean; t: (key: string) => string; onBack: () => void; data?: any; onUpdateData?: (newData: any) => void; }> = ({ isDark, t, onBack, data, onUpdateData }) => {
   const customers = data?.udhaarCustomers || [];
+    const lastScannedVehicle = data?.lastScannedVehicle;
+    const canUseLastScanned = !!lastScannedVehicle?.regNo;
   const setCustomers = (newCustomers: Customer[]) => {
       if (onUpdateData) {
           const totalDue = newCustomers.reduce((acc, c) => acc + c.balance, 0);
@@ -217,6 +220,7 @@ export const CustomerUdhaar: React.FC<{ isDark: boolean; t: (key: string) => str
                   placeholder="Search customer..."
                   value={search} onChange={e => setSearch(e.target.value)} 
               />
+                <div className="absolute right-12 top-1.5 z-10"><VoiceInput onResult={setSearch} isDark={isDark} /></div>
           </div>
       </div>
 
@@ -268,6 +272,18 @@ export const CustomerUdhaar: React.FC<{ isDark: boolean; t: (key: string) => str
                       <button onClick={() => setIsAddModalOpen(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"><X size={20}/></button>
                   </div>
                   <div className="space-y-4">
+                                            {canUseLastScanned && (
+                                                <button
+                                                    onClick={() => setNewCustomer({
+                                                        name: lastScannedVehicle.customerName || '',
+                                                        phone: lastScannedVehicle.customerPhone || '',
+                                                        initialBalance: ''
+                                                    })}
+                                                    className="w-full py-2.5 rounded-xl border border-orange-200 bg-orange-50 text-orange-700 font-bold text-sm hover:bg-orange-100 transition-colors"
+                                                >
+                                                    Use last scanned vehicle ({lastScannedVehicle.regNo})
+                                                </button>
+                                            )}
                       <div>
                           <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Full Name</label>
                           <input className={`w-full p-3.5 rounded-xl border-2 font-medium outline-none transition-colors ${isDark ? 'bg-slate-800 border-slate-700 focus:border-orange-500' : 'bg-gray-50 border-gray-200 focus:border-orange-500'}`} placeholder="Enter name" value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} autoFocus/>

@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-ca84f546'], (function (workbox) { 'use strict';
+define(['./workbox-6ef89e47'], (function (workbox) { 'use strict';
 
   self.skipWaiting();
   workbox.clientsClaim();
@@ -82,7 +82,7 @@ define(['./workbox-ca84f546'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "index.html",
-    "revision": "0.8imnu7mauj"
+    "revision": "0.peueif2tgi"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
@@ -95,6 +95,11 @@ define(['./workbox-ca84f546'], (function (workbox) { 'use strict';
       maxAgeSeconds: 31536000
     }), new workbox.CacheableResponsePlugin({
       statuses: [0, 200]
+    })]
+  }), 'GET');
+  workbox.registerRoute(/\/api\/data\/sync/, new workbox.NetworkOnly({
+    plugins: [new workbox.BackgroundSyncPlugin("autohub-sync-queue", {
+      maxRetentionTime: 1440
     })]
   }), 'GET');
 

@@ -5,6 +5,7 @@ import { X, Camera, RefreshCcw } from 'lucide-react';
 interface BarcodeScannerProps {
   onScan: (decodedText: string) => void;
   onClose: () => void;
+  isDark?: boolean;
 }
 
 export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {

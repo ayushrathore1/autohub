@@ -1,3 +1,4 @@
+import VoiceInput from '../VoiceInput';
 import React, { useState, useRef, useEffect } from 'react';
 import {
     StickyNote, Search, PenTool, Trash2, Mic, FileText, Bold, Italic, Underline,
@@ -284,6 +285,7 @@ const NoteMaster: React.FC<NoteMasterProps> = ({ t, isDark, initialNoteId, onBac
                             value={noteSearch}
                         onChange={e => setNoteSearch(e.target.value)}
                     />
+                <div className="absolute right-12 top-1.5 z-10"><VoiceInput onResult={setNoteSearch} isDark={isDark} /></div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 overflow-y-auto pb-20">

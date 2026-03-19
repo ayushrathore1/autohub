@@ -81,7 +81,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     }
 
     return (
-        <div className={`pb-24 min-h-screen ${isDark ? 'text-white' : 'text-black'}`} style={{ backgroundColor: themePreset.bg }}>
+          <div className={`pb-24 min-h-screen animate-in fade-in slide-in-from-bottom-4 duration-300 ${isDark ? 'text-white' : 'text-black'}`} style={{ backgroundColor: themePreset.bg }}>
             {/* Header */}
             <div className={`sticky top-0 z-40 p-4 backdrop-blur-xl ${isDark ? 'bg-slate-900/90' : 'bg-gray-50/90'}`}>
                 <div className="flex justify-between items-center mb-4">
@@ -114,7 +114,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         t={t}
                         data={data}
                         user={user}
-                        pushToFirebase={pushToFirebase}
+                        pushToFirebase={(d) => { setData(d); pushToFirebase(d); }}
                         showToast={showToast}
                         setView={setView}
                         setPreviousView={setPreviousView}
@@ -182,7 +182,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         isDark={isDark}
                         t={t}
                         data={data}
-                        pushToFirebase={pushToFirebase}
+                        pushToFirebase={(d) => { setData(d); pushToFirebase(d); }}
                         themeOptions={themeOptions}
                     />
                 )}
@@ -193,7 +193,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         isDark={isDark}
                         t={t}
                         data={data}
-                        pushToFirebase={pushToFirebase}
+                        pushToFirebase={(d) => { setData(d); pushToFirebase(d); }}
                         notifPermission={notifPermission}
                         requestNotificationPermission={requestNotificationPermission}
                         triggerConfirm={triggerConfirm}
@@ -206,7 +206,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         isDark={isDark}
                         t={t}
                         data={data}
-                        pushToFirebase={pushToFirebase}
+                        pushToFirebase={(d) => { setData(d); pushToFirebase(d); }}
                         triggerConfirm={triggerConfirm}
                         showToast={showToast}
                     />
@@ -219,7 +219,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         t={t}
                         data={data}
                         setData={setData}
-                        pushToFirebase={pushToFirebase}
+                        pushToFirebase={(d) => { setData(d); pushToFirebase(d); }}
                         showToast={showToast}
                         triggerConfirm={triggerConfirm}
                     />

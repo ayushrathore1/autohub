@@ -106,6 +106,7 @@ const DraggableFAB: React.FC<DraggableFABProps> = ({
         } else {
             // If not dragging and not long press, it's a click
             if (!isLongPress && onClick) {
+                if ('vibrate' in navigator) navigator.vibrate([40, 20, 40]);
                 onClick();
             }
         }

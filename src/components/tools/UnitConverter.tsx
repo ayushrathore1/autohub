@@ -42,10 +42,10 @@ const UnitConverter: React.FC<UnitConverterProps> = ({ isDark = false, t = (k: s
 
             <div className="flex-1 overflow-y-auto p-4 flex flex-col">
                 <div className="grid grid-cols-2 gap-2 mb-4 bg-white dark:bg-slate-800 p-2 rounded-xl border border-gray-100 dark:border-slate-700 shrink-0">
-                    <button onClick={() => setConvInput({ ...convInput, type: 'kgToTon' })} className={`p-2 text-sm font-bold rounded-lg ${convInput.type === 'kgToTon' ? 'bg-green-100 text-green-700' : 'text-gray-500'}`}>KG ➔ Ton</button>
-                    <button onClick={() => setConvInput({ ...convInput, type: 'tonToKg' })} className={`p-2 text-sm font-bold rounded-lg ${convInput.type === 'tonToKg' ? 'bg-green-100 text-green-700' : 'text-gray-500'}`}>Ton ➔ KG</button>
-                    <button onClick={() => setConvInput({ ...convInput, type: 'inToMm' })} className={`p-2 text-sm font-bold rounded-lg ${convInput.type === 'inToMm' ? 'bg-green-100 text-green-700' : 'text-gray-500'}`}>Inch ➔ mm</button>
-                    <button onClick={() => setConvInput({ ...convInput, type: 'mmToIn' })} className={`p-2 text-sm font-bold rounded-lg ${convInput.type === 'mmToIn' ? 'bg-green-100 text-green-700' : 'text-gray-500'}`}>mm ➔ Inch</button>
+                    <button onClick={() => setConvInput({ ...convInput, type: 'kgToTon' })} className={`p-2 text-sm font-bold rounded-lg ${convInput.type === 'kgToTon' ? 'bg-green-100 text-green-700' : 'text-gray-500'}`}>KG -&gt; Ton</button>
+                    <button onClick={() => setConvInput({ ...convInput, type: 'tonToKg' })} className={`p-2 text-sm font-bold rounded-lg ${convInput.type === 'tonToKg' ? 'bg-green-100 text-green-700' : 'text-gray-500'}`}>Ton -&gt; KG</button>
+                    <button onClick={() => setConvInput({ ...convInput, type: 'inToMm' })} className={`p-2 text-sm font-bold rounded-lg ${convInput.type === 'inToMm' ? 'bg-green-100 text-green-700' : 'text-gray-500'}`}>Inch -&gt; mm</button>
+                    <button onClick={() => setConvInput({ ...convInput, type: 'mmToIn' })} className={`p-2 text-sm font-bold rounded-lg ${convInput.type === 'mmToIn' ? 'bg-green-100 text-green-700' : 'text-gray-500'}`}>mm -&gt; Inch</button>
                 </div>
 
                 <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col items-center justify-center flex-1">

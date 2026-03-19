@@ -4,6 +4,7 @@ import VoiceInput from '../VoiceInput';
 import { QuotationSchema } from '../../schemas';
 
 interface QuotationMakerProps {
+    onUpdateData?: (data: any) => void;
     onBack?: () => void;
     t: (key: string) => string;
     shopDetails: any;
@@ -408,6 +409,7 @@ const QuotationMaker: React.FC<QuotationMakerProps> = ({ t, shopDetails, data, i
                                         onChange={e => setQuoteSearch(e.target.value)}
                                         autoFocus
                                     />
+                <div className="absolute right-12 top-1.5 z-10"><VoiceInput onResult={setQuoteSearch} isDark={isDark} /></div>
                                 </div>
                                 <div className="shrink-0 flex items-center justify-center">
                                     <VoiceInput onResult={setQuoteSearch} isDark={isDark} />

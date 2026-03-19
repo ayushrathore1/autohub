@@ -1,111 +1,179 @@
-﻿import React, { useState } from 'react';
-import { Activity, Plus, Package, Trash2, ArrowLeft } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Activity, Package, ArrowLeft, TrendingUp, AlertCircle, PieChart, Info, DollarSign } from 'lucide-react';
 
 interface StockValueCalculatorProps {
     isDark?: boolean;
     t?: (key: string) => string;
     onBack?: () => void;
+    data?: any;
 }
 
-const StockValueCalculator: React.FC<StockValueCalculatorProps> = ({ isDark = false, t = (k: string) => k, onBack }) => {
-    const [stockCalc, setStockCalc] = useState<{ items: any[], newItem: any }>({ items: [], newItem: { name: '', qty: 0, rate: 0 } });
+const StockValueCalculator: React.FC<StockValueCalculatorProps> = ({ isDark = false, t = (k: string) => k, onBack, data }) => {
+    
+    // Process real inventory from global data
+    const inventoryStats = useMemo(() => {
+        let totalCostValue = 0;
+        let totalRetailValue = 0;
+        let totalItems = 0;
+        let outOfStock = 0;
+        let lowStock = 0;
+        let highValueItems: any[] = [];
+        
+        const entries = data?.entries || [];
 
-    // Native App Styles
-    const cardClass = `h-full flex flex-col ${isDark ? 'bg-slate-900 text-white' : 'bg-gray-50 text-gray-900'}`;
+        entries.forEach((item: any) => {
+            const qty = parseFloat(item.qty) || 0;
+            const cost = parseFloat(item.costPrice) || 0;
+            const retail = parseFloat(item.basePrice) || parseFloat(item.sellingPrice) || 0;
+            const minStock = parseFloat(item.minStock) || 0;
+            
+            if (qty <= 0) {
+               outOfStock++;
+               return; // No value to add
+            }
 
-    const stockTotal = stockCalc.items.reduce((acc: number, item: any) => acc + (item.qty * item.rate), 0);
+            totalItems += qty;
+            
+            // If cost price is missing, fallback to 70% of retail price as an estimate
+            const actualCost = cost > 0 ? cost : (retail * 0.7);
+            
+            const itemCostValue = qty * actualCost;
+            const itemRetailValue = qty * retail;
+
+            totalCostValue += itemCostValue;
+            totalRetailValue += itemRetailValue;
+
+            if (qty > 0 && qty <= minStock) {
+                lowStock++;
+            }
+
+            highValueItems.push({
+                ...item,
+                costValue: itemCostValue,
+                retailValue: itemRetailValue,
+                actualCost
+            });
+        });
+
+        highValueItems.sort((a, b) => b.costValue - a.costValue);
+
+        return {
+            totalCostValue,
+            totalRetailValue,
+            expectedProfit: totalRetailValue - totalCostValue,
+            margin: totalCostValue > 0 ? ((totalRetailValue - totalCostValue) / totalCostValue) * 100 : 0,
+            totalItems,
+            outOfStock,
+            lowStock,
+            topItems: highValueItems.slice(0, 10)
+        };
+    }, [data]);
+
+    const cardClass = `h-full flex flex-col ${isDark ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`;
 
     return (
         <div className={cardClass}>
             {/* Header */}
-            <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0">
+            <div className={`flex items-center px-4 py-4 border-b shrink-0 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
                 {onBack && (
-                    <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+                    <button onClick={onBack} className={`p-2 -ml-2 mr-2 rounded-full transition-colors ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-100'}`}>
                         <ArrowLeft size={24} className={isDark ? 'text-white' : 'text-slate-800'} />
                     </button>
                 )}
-                <h3 className="font-bold text-xl flex items-center gap-2">
-                    <Activity className="text-cyan-500" size={24} />
-                    {t('Stock Value')}
-                </h3>
+                <div>
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                      <Activity className="text-blue-500" size={24} />
+                      {t('Stock Valuation')}
+                  </h2>
+                  <p className="text-[10px] uppercase font-black tracking-widest text-blue-500 opacity-80">Real-Time Analytics</p>
+                </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col">
-                <div className="bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl p-6 text-white shadow-xl shadow-cyan-500/20 mb-6 flex flex-col items-center justify-center">
-                    <span className="text-cyan-100 font-bold tracking-wider mb-1">TOTAL INVENTORY</span>
-                    <span className="text-4xl font-black">₹{stockTotal.toLocaleString('en-IN')}</span>
-                </div>
-
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border-2 border-cyan-100 dark:border-slate-700 overflow-hidden mb-6 flex-shrink-0">
-                    <div className="p-3 bg-cyan-50 dark:bg-slate-700 border-b border-cyan-100 dark:border-slate-600 font-bold text-cyan-800 dark:text-cyan-200 text-sm flex items-center gap-2">
-                        <Plus size={16} /> Add Inventory Fast
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col space-y-6 pb-24">
+                
+                {/* Hero Stat */}
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-800 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-10">
+                        <PieChart size={120} />
                     </div>
-                    <div className="p-4 grid grid-cols-2 gap-3">
-                        <input
-                            className="col-span-2 w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-3 font-bold text-sm outline-none"
-                            placeholder="Part Name / SKU"
-                            value={stockCalc.newItem.name}
-                            onChange={e => setStockCalc({ ...stockCalc, newItem: { ...stockCalc.newItem, name: e.target.value } })}
-                        />
-                        <input
-                            type="number"
-                            className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-3 font-bold text-sm outline-none"
-                            placeholder="Qty"
-                            value={stockCalc.newItem.qty || ''}
-                            onChange={e => setStockCalc({ ...stockCalc, newItem: { ...stockCalc.newItem, qty: Number(e.target.value) } })}
-                        />
-                        <input
-                            type="number"
-                            className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-3 font-bold text-sm outline-none"
-                            placeholder="Purchase Rate"
-                            value={stockCalc.newItem.rate || ''}
-                            onChange={e => setStockCalc({ ...stockCalc, newItem: { ...stockCalc.newItem, rate: Number(e.target.value) } })}
-                        />
-                        <button
-                            className="col-span-2 p-3 bg-cyan-600 hover:bg-cyan-700 active:scale-95 transition-all text-white rounded-xl font-bold shadow-md"
-                            onClick={() => {
-                                if (stockCalc.newItem.name && stockCalc.newItem.qty > 0) {
-                                    setStockCalc({
-                                        items: [...stockCalc.items, { ...stockCalc.newItem, id: Date.now() }],
-                                        newItem: { name: '', qty: 0, rate: 0 }
-                                    });
-                                }
-                            }}
-                        >
-                            Save to Inventory (Local)
-                        </button>
-                    </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto">
-                    {stockCalc.items.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-8 text-gray-400 dark:text-gray-500 h-full">
-                            <Package size={48} className="mb-2 opacity-30" />
-                            <p className="font-bold">No Items Added</p>
+                    <div className="relative z-10 flex flex-col">
+                        <span className="text-blue-100 font-bold tracking-wider mb-2 text-sm uppercase opacity-80 flex items-center gap-2"><DollarSign size={16}/> Total Inventory Value (Cost)</span>
+                        <span className="text-4xl md:text-5xl font-black mb-4">₹{Math.round(inventoryStats.totalCostValue).toLocaleString('en-IN')}</span>
+                        
+                        <div className="grid grid-cols-2 gap-4 mt-2">
+                           <div>
+                              <span className="text-xs uppercase opacity-70 font-bold block mb-1">Potential Retail</span>
+                              <div className="text-lg font-bold text-green-300">₹{Math.round(inventoryStats.totalRetailValue).toLocaleString('en-IN')}</div>
+                           </div>
+                           <div>
+                              <span className="text-xs uppercase opacity-70 font-bold block mb-1">Expected Profit</span>
+                              <div className="text-lg font-bold text-yellow-300">₹{Math.round(inventoryStats.expectedProfit).toLocaleString('en-IN')} (+{inventoryStats.margin.toFixed(1)}%)</div>
+                           </div>
                         </div>
+                    </div>
+                </div>
+
+                {/* Micro Stats */}
+                <div className="grid grid-cols-3 gap-3">
+                   <div className={`p-4 rounded-2xl ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white shadow-sm border-gray-100'} border flex flex-col items-center justify-center text-center`}>
+                       <Package className="text-blue-500 mb-2" />
+                       <div className="text-2xl font-black">{inventoryStats.totalItems}</div>
+                       <div className="text-xs uppercase font-bold opacity-50 mt-1">Units</div>
+                   </div>
+                   <div className={`p-4 rounded-2xl ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white shadow-sm border-gray-100'} border flex flex-col items-center justify-center text-center`}>
+                       <TrendingUp className="text-yellow-500 mb-2" />
+                       <div className="text-2xl font-black">{inventoryStats.lowStock}</div>
+                       <div className="text-xs uppercase font-bold opacity-50 mt-1">Low</div>
+                   </div>
+                   <div className={`p-4 rounded-2xl ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white shadow-sm border-gray-100'} border flex flex-col items-center justify-center text-center`}>
+                       <AlertCircle className="text-red-500 mb-2" />
+                       <div className="text-2xl font-black">{inventoryStats.outOfStock}</div>
+                       <div className="text-xs uppercase font-bold opacity-50 mt-1">Out</div>
+                   </div>
+                </div>
+
+                {/* Top Valuable Items Table */}
+                <div className={`rounded-3xl border overflow-hidden ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                    <div className={`p-4 border-b flex items-center justify-between ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
+                       <h3 className="font-bold flex items-center gap-2"><TrendingUp size={18} className="text-indigo-500"/> Most Valuable Assets</h3>
+                       <div className="flex items-center gap-1 text-xs opacity-60"><Info size={12}/> By Total Cost</div>
+                    </div>
+                    
+                    {inventoryStats.topItems.length === 0 ? (
+                        <div className="p-8 text-center opacity-50 font-bold">No inventory data found. Please import stock.</div>
                     ) : (
-                        <div className="space-y-2 pb-4">
-                            {stockCalc.items.map(item => (
-                                <div key={item.id} className="flex justify-between items-center p-4 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-sm animate-in fade-in zoom-in-95">
-                                    <div>
-                                        <p className="font-bold">{item.name}</p>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">{item.qty} × ₹{item.rate}</p>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <div className="text-right">
-                                            <p className="font-bold text-cyan-600 dark:text-cyan-400">₹{(item.qty * item.rate).toLocaleString('en-IN')}</p>
-                                        </div>
-                                        <button
-                                            onClick={() => setStockCalc({ ...stockCalc, items: stockCalc.items.filter(i => i.id !== item.id) })}
-                                            className="text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-full"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className={`text-[10px] uppercase font-black opacity-50 ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
+                                        <th className="p-3">Product</th>
+                                        <th className="p-3">Qty</th>
+                                        <th className="p-3">Avg Cost</th>
+                                        <th className="p-3 text-right">Total Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {inventoryStats.topItems.map((item, idx) => (
+                                        <tr key={item.id || idx} className={`border-b last:border-0 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
+                                            <td className="p-3">
+                                                <div className="font-bold text-sm w-[150px] truncate" title={item.car || item.name}>{item.car || item.name}</div>
+                                                <div className="text-xs opacity-60 line-clamp-1">{item.category || item.brand || 'General'}</div>
+                                            </td>
+                                            <td className="p-3 font-mono text-sm">{item.qty} {item.unit || ''}</td>
+                                            <td className="p-3 font-mono text-sm text-slate-500">₹{Math.round(item.actualCost)}</td>
+                                            <td className="p-3 font-mono text-sm font-bold text-right text-indigo-500 dark:text-indigo-400">
+                                                ₹{Math.round(item.costValue).toLocaleString('en-IN')}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     )}
+                </div>
+
+                <div className="text-center opacity-50 text-xs font-bold px-4">
+                   Note: Metrics use item Cost Price. If Cost Price is missing, the system auto-estimates it as 70% of Retail Price for valuation.
                 </div>
             </div>
         </div>

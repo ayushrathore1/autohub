@@ -62,6 +62,37 @@ export const AnalyticsDashboard = ({ onBack, isDark = false, data, t }: { onBack
     });
   }, [data?.salesEvents, activeTab, selectedDate]);
 
+  const filteredScans = useMemo(() => {
+    if (!data?.scannedVehicles) return [];
+    return data.scannedVehicles.filter((s: any) => {
+      const sb = new Date(s.scannedAt);
+      if (activeTab === 'Day') {
+        return sb.getDate() === baseDate.getDate() &&
+               sb.getMonth() === baseDate.getMonth() &&
+               sb.getFullYear() === baseDate.getFullYear();
+      }
+      if (activeTab === 'Week') {
+        const diff = endOfDay.getTime() - sb.getTime();
+        return diff >= 0 && diff <= 7 * 24 * 60 * 60 * 1000;
+      }
+      if (activeTab === 'Month') {
+        const diff = endOfDay.getTime() - sb.getTime();
+        return diff >= 0 && diff <= 30 * 24 * 60 * 60 * 1000;
+      }
+      return true;
+    });
+  }, [data?.scannedVehicles, activeTab, selectedDate]);
+
+  const scanCount = filteredScans.length;
+  const scanCountsByReg: Record<string, number> = {};
+  filteredScans.forEach((s: any) => {
+    const key = (s.regNo || '').toUpperCase();
+    if (!key) return;
+    scanCountsByReg[key] = (scanCountsByReg[key] || 0) + 1;
+  });
+  const uniqueScanCount = Object.keys(scanCountsByReg).length;
+  const repeatScanCount = Object.values(scanCountsByReg).filter(c => c > 1).length;
+
   const totalSales = filteredEvents.reduce((acc: number, val: any) => acc + val.amount, 0);
   const transactions = filteredEvents.length;
   const avgTicket = transactions > 0 ? Math.round(totalSales / transactions) : 0;
@@ -318,6 +349,18 @@ export const AnalyticsDashboard = ({ onBack, isDark = false, data, t }: { onBack
             <div className="flex gap-1 mt-4">
               {[1,2,3,4,5].map((i, idx) => <div key={idx} className={`w-1.5 h-1.5 rounded-full ${idx === 3 ? 'bg-white' : 'bg-white/50'}`}></div>)}
             </div>
+          </div>
+
+          <div className="min-w-[150px] bg-gradient-to-br from-[#c6e7ff] to-[#8cc8ff] rounded-xl p-4 text-[#0F2F4A] snap-center">
+            <p className="text-[11px] font-bold opacity-80 mb-0.5">Vehicle Scans</p>
+            <p className="text-[22px] font-bold tracking-tight mb-2">{scanCount}</p>
+            <p className="text-[10px] font-semibold bg-white/70 inline-block px-2 py-0.5 rounded-sm">{activeTab}</p>
+          </div>
+
+          <div className="min-w-[150px] bg-gradient-to-br from-[#d7f7df] to-[#a7e9bc] rounded-xl p-4 text-[#1A3B25] snap-center">
+            <p className="text-[11px] font-bold opacity-80 mb-0.5">Repeat Vehicles</p>
+            <p className="text-[22px] font-bold tracking-tight mb-2">{repeatScanCount}</p>
+            <p className="text-[10px] font-semibold opacity-80">Unique: {uniqueScanCount}</p>
           </div>
         </div>
 

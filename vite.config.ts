@@ -66,7 +66,18 @@ export default defineConfig({
               }
             }
           },
-
+          {
+            urlPattern: /\/api\/data\/sync/,
+            handler: 'NetworkOnly',
+            options: {
+              backgroundSync: {
+                name: 'autohub-sync-queue',
+                options: {
+                  maxRetentionTime: 24 * 60 // 24 hours in minutes
+                }
+              }
+            }
+          }
         ]
       },
       devOptions: {

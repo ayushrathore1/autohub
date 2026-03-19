@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { syncEngine } from './lib/offlineSync';
 import DraggableFAB from './DraggableFAB';
 import SettingsPanel from './components/SettingsPanel';
 import {
@@ -31,6 +32,7 @@ import { DailySales } from './components/DailySales';
 import { TranslateBtn } from './components/TranslateBtn';
 import { RecentNotesWidget } from './components/RecentNotesWidget';
 import { BarcodeScanner } from './components/tools/BarcodeScanner';
+import type { Settings as SettingsType } from './types';
 
 interface SearchResult {
   match: boolean;
@@ -305,7 +307,12 @@ const GhostMic = ({ inventory, pages, onClose, onNavigate, allowAI = true, useFu
       const responseLang = resolveResponseLanguage(transcript, detectedLang);
 
       // First, try stock search
-      const stockResult = performSmartSearch(transcript, inventory, pages, { useFuzzy: useFuzzySearch });
+      let searchTranscript = transcript;
+      try {
+        setStatus('Translating query...');
+        searchTranscript = await translateWithGoogle(transcript, 'auto', 'en');
+      } catch (e) {}
+      const stockResult = performSmartSearch(searchTranscript, inventory, pages, { useFuzzy: useFuzzySearch });
 
       if (stockResult.match && stockResult.items.length > 0) {
         // Stock found - show stock results
@@ -1287,23 +1294,7 @@ const NavBtn = ({ icon, label, active, onClick, alert, isDark, accentHex }: any)
 );
 
 
-interface AppSettings {
-  limit: number;
-  theme: string;
-  accentColor: string;
-  shakeToSearch: boolean;
-  productPassword: string;
-  shopName: string;
-  pinnedTools: string[];
-  fontSize?: string;
-  fuzzySearch?: boolean;
-  voiceAI?: boolean;
-  aiPredictions?: boolean;
-  widgets?: {
-    aiInsights?: boolean;
-    predictions?: boolean;
-  } | boolean;
-}
+interface AppSettings extends SettingsType {}
 
 interface GpsReminderLog {
   id: number;
@@ -1328,11 +1319,14 @@ interface AppDataType {
   pages: any[];
   entries: any[];
   bills: any[];
+  udhaarDue?: number;
   salesEvents: any[];
+  scannedVehicles?: any[];
   gpsReminders: GpsReminder[];
   settings: AppSettings;
   appStatus: string;
   credentials?: { email: string; password: string; };
+  lastScannedVehicle?: any;
 }
 
 const defaultData: AppDataType = {
@@ -1340,6 +1334,7 @@ const defaultData: AppDataType = {
   entries: [],
   bills: [],
   salesEvents: [],
+  scannedVehicles: [],
   gpsReminders: [],
   settings: { limit: 5, theme: 'light', accentColor: 'blue', shakeToSearch: true, productPassword: '0000', shopName: 'Autonex', pinnedTools: [] },
   appStatus: 'active',
@@ -1364,6 +1359,9 @@ function DukanRegister() {
   const [dbLoading, setDbLoading] = useState(false);
   const [fbDocId, setFbDocId] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isStaffMode, setIsStaffMode] = useState(localStorage.getItem('autonex_staff_mode') === 'true');
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [rolePinInput, setRolePinInput] = useState('');
 
   const [view, setView] = useState('generalIndex');
   const [showAnnouncements, setShowAnnouncements] = useState(false);
@@ -1613,17 +1611,29 @@ function DukanRegister() {
       setData(finalData);
       setDbLoading(false);
     })
-    .catch(error => {
+    .catch(async (error) => {
       clearTimeout(loadingTimeout);
       console.error("DB Error:", error);
       showToast(t('Database connection error.'), 'error');
       try {
-        const backupRaw = localStorage.getItem('dukan:backup');
-        if (backupRaw) {
-          const backupData = JSON.parse(backupRaw);
+        const backupData = await syncEngine.loadBackup();
+        if (backupData) {
           setData(backupData);
-          console.info('Restored data from local backup after DB error');
+          console.info('Restored data from Dexie backup after DB error');
           showToast(t('Showing offline data'), 'error');
+        } else {
+          try {
+            const backupRaw = localStorage.getItem('dukan:backup');
+            if (backupRaw) {
+              const legacyData = JSON.parse(backupRaw);
+              setData(legacyData);
+              syncEngine.saveBackup(legacyData);
+              console.info('Restored data from legacy localStorage backup after DB error');
+              showToast(t('Showing offline data'), 'error');
+            }
+          } catch (e) {
+            console.error('Failed to read legacy backup', e);
+          }
         }
       } catch (e) {
         console.warn('Backup restore failed in error handler', e);
@@ -1680,8 +1690,8 @@ function DukanRegister() {
     // Stamp every write with lastUpdated for multi-device conflict tracking
     const payload = { ...newData, lastUpdated: Date.now() };
 
-    // Also update local backup immediately so we never lose data
-    try { localStorage.setItem('dukan:backup', JSON.stringify(payload)); } catch { /* noop */ }
+    // Also update Dexie backup immediately so we never lose data
+    try { await syncEngine.saveBackup(payload); } catch { /* noop */ }
 
     // Try to write to backend API with retries
     const tryWrite = async (attempts = 3) => {
@@ -1695,7 +1705,7 @@ function DukanRegister() {
             },
             body: JSON.stringify(payload)
           });
-          
+
           if (!res.ok) {
              const data = await res.json();
              throw new Error(data.error || 'Failed to sync');
@@ -1713,54 +1723,34 @@ function DukanRegister() {
 
     try {
       const res = await tryWrite(3);
-      return res;
+      if (res) return res;
+      throw new Error('Sync failed after 3 attempts');
     } catch (err: any) {
-      // Queue for later sync
+      // Queue for later sync with Dexie
       try {
-        const key = 'dukan:pendingWrites';
-        const raw = localStorage.getItem(key);
-        const list = raw ? JSON.parse(raw) : [];
-        list.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), data: payload, ts: Date.now(), attempts: 0 });
-        localStorage.setItem(key, JSON.stringify(list));
-        showToast(t('Saved locally. Will retry sync.'), 'error');
+        await syncEngine.queueWrite(payload);
+        showToast(t('Offline: Saved locally. Will retry when online.'), 'error');
       } catch (e) {
         console.error('Failed to queue write', e);
-        showToast(t('Save Failed: ') + (err && err.message ? err.message : String(err)), 'error');
       }
       return false;
     }
   };
 
-  // Process pending writes persisted in localStorage
   const processPendingWrites = useCallback(async () => {
     if (!user) return;
     try {
-      const key = 'dukan:pendingWrites';
-      const raw = localStorage.getItem(key);
-      if (!raw) return;
-      const list = JSON.parse(raw) || [];
-      const remaining = [];
-      for (const item of list) {
-        try {
-          const res = await fetch('http://localhost:5000/api/data/sync', {
-             method: 'POST',
-             headers: {
-               'Content-Type': 'application/json',
-               'Authorization': `Bearer ${localStorage.getItem('autohub_token')}`
-             },
-             body: JSON.stringify(item.data)
-          });
-          if (!res.ok) throw new Error('Failed to sync');
-        } catch {
-          const attempts = (item.attempts || 0) + 1;
-          if (attempts >= 5) {
-            console.warn('Dropping pending write after max attempts', item.id);
-            continue;
-          }
-          remaining.push({ ...item, attempts });
-        }
-      }
-      if (remaining.length) localStorage.setItem(key, JSON.stringify(remaining)); else localStorage.removeItem(key);
+      await syncEngine.processPendingTransfers(async (payload) => {
+        const res = await fetch('http://localhost:5000/api/data/sync', {
+           method: 'POST',
+           headers: {
+             'Content-Type': 'application/json',
+             'Authorization': `Bearer ${localStorage.getItem('autohub_token')}`
+           },
+           body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('Failed to sync');
+      });
     } catch (e) {
       console.warn('Error processing pending writes', e);
     }
@@ -1773,10 +1763,10 @@ function DukanRegister() {
     return () => window.removeEventListener('online', processPendingWrites);
   }, [processPendingWrites]);
 
-  // Periodic local backup and an export helper to avoid data loss
+  // Periodic Dexie backup and an export helper to avoid data loss
   useEffect(() => {
     const id = setInterval(() => {
-      try { localStorage.setItem('dukan:backup', JSON.stringify(data)); } catch (e) { console.warn('Backup failed', e); }
+      syncEngine.saveBackup(data).catch(e => console.warn('Backup failed', e));
     }, 1000 * 60 * 5); // every 5 minutes
     return () => clearInterval(id);
   }, [data]);
@@ -1801,16 +1791,20 @@ function DukanRegister() {
   try { window.__dukan_exportData = exportDataToFile; } catch { /* noop */ }
 
   const handleTogglePin = async (toolId) => {
-    const currentPins = data.settings.pinnedTools || [];
+    const currentPins = data.settings?.dashboardTools || ['crm', 'jobcard', 'vehicle', 'analytics', 'udhaar', 'supplier', 'warranty'];
     let newPins;
     if (currentPins.includes(toolId)) {
       newPins = currentPins.filter(id => id !== toolId);
-      showToast("Tool Removed from Home");
+      showToast("Tool Removed from Dashboard");
     } else {
+      if (currentPins.length >= 7) {
+        showToast(t("Maximum 7 tools allowed on Dashboard"), "error");
+        return;
+      }
       newPins = [...currentPins, toolId];
-      showToast("Tool Added to Home");
+      showToast("Tool Added to Dashboard");
     }
-    await pushToFirebase({ ...data, settings: { ...data.settings, pinnedTools: newPins } });
+    await pushToFirebase({ ...data, settings: { ...data.settings, dashboardTools: newPins } });
   };
 
   const compressImage = (file) => {
@@ -1898,7 +1892,7 @@ function DukanRegister() {
       id: timestamp,
       date: new Date().toISOString(),
       image: previewUrl, // local preview
-      path: null,
+      path: `bills/${user?.uid || 'local'}/${timestamp}_${file.name}`,
       uploading: true,
       progress: 0,
       originalFile: file
@@ -1909,7 +1903,7 @@ function DukanRegister() {
       id: timestamp,
       date: new Date().toISOString(),
       image: null, // will be set to downloadURL after upload
-      path: storagePath,
+      path: `bills/${user?.uid || 'local'}/${timestamp}_${file.name}`,
       uploading: true,
       progress: 0
     };
@@ -2614,8 +2608,8 @@ function DukanRegister() {
             <Bell size={22} className="text-[#0F1724] dark:text-white" />
             <span className="absolute -top-1 -right-1 bg-[#E53935] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white">3</span>
           </div>
-          <div className="w-8 h-8 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center text-[#556077] dark:text-slate-300">
-            <User size={18} />
+          <div onClick={() => setShowRoleModal(true)} className="w-8 h-8 cursor-pointer active:scale-95 transition-all bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center text-[#556077] dark:text-slate-300">
+            {isStaffMode ? <Lock size={14} className="text-orange-500" /> : <ShieldCheck size={18} className="text-blue-500" />}
           </div>
         </div>
       </div>
@@ -2677,7 +2671,7 @@ function DukanRegister() {
           </div>
         </div>
 
-        <div className="min-w-[145px] bg-[#FFFFFF] dark:bg-slate-800 p-4 rounded-[16px] border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform cursor-pointer" onClick={() => { setActiveToolId('udhaar'); setView('tools'); }}>
+        <div className="min-w-[145px] bg-[#FFFFFF] dark:bg-slate-800 p-4 rounded-[16px] border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform cursor-pointer" onClick={() => { setActiveToolId('udhaar'); setPreviousView('generalIndex'); setView('tools'); }}>
           <div className="flex items-center gap-1.5 text-[#2F80ED] mb-1">
             <FileText size={14} />
             <span className="text-[12px] font-semibold text-[#556077] dark:text-slate-400">{t("Pending Due")}</span>
@@ -2694,53 +2688,41 @@ function DukanRegister() {
         <h2 className="text-[16px] font-bold text-[#0F1724] dark:text-white">{t("Business Hub")}</h2>
         <button 
           onClick={() => {
-            setEditingTools(data.settings?.dashboardTools || ['analytics', 'udhaar', 'supplier', 'warranty', 'import']);
+            setEditingTools(data.settings?.dashboardTools || ['crm', 'jobcard', 'vehicle', 'analytics', 'udhaar', 'supplier', 'warranty']);
             setIsDashboardToolEditorOpen(true);
           }}
-          className="text-[13px] font-semibold text-[#FF7A18] hover:text-orange-600"
+          className="text-[13px] font-semibold text-[#FF7A18] hover:text-orange-600 flex items-center gap-1"
         >
-          {t("See All")}
+          <Settings size={14}/> {t("Customize")}
         </button>
       </div>
 
             {/* 5. Grid of Feature Tiles */}
       <div className="px-4 grid grid-cols-4 gap-x-3 gap-y-4 mb-8">
         {(() => {
-          const allTools = [
-            { id: "supplier", title: "Supplier\nLedger", icon: Package, bg: "bg-[#FFF3E6]", iconCol: "text-[#FF7A18]", darkBg: "dark:bg-orange-950/40" },
-            { id: "udhaar", title: "Customer\nKhata", icon: Users, bg: "bg-[#E6FBF2]", iconCol: "text-[#17B890]", darkBg: "dark:bg-emerald-950/40" },
-            { id: "quotation", title: "Quotation\nMaker", icon: FileText, bg: "bg-[#F0EEFF]", iconCol: "text-[#5C6BC0]", darkBg: "dark:bg-indigo-950/40" },
-            { id: "invoice", title: "Bill\nGenerator", icon: FileText, bg: "bg-[#EAF6FF]", iconCol: "text-[#2F80ED]", darkBg: "dark:bg-blue-950/40" },
-            { id: "stockvalue", title: "Inventory", icon: Package, bg: "bg-[#FFFBE6]", iconCol: "text-[#FBC02D]", darkBg: "dark:bg-yellow-950/40" },
-            { id: "warranty", title: "Warranty\nVault", icon: Shield, bg: "bg-[#FCE4EC]", iconCol: "text-[#EC407A]", darkBg: "dark:bg-pink-950/40" },
-            { id: "analytics", title: "Sales\nReport", icon: TrendingUp, bg: "bg-[#F3E5F5]", iconCol: "text-[#AB47BC]", darkBg: "dark:bg-purple-950/40" },
-            { id: "margin", title: "Expenses", icon: FileMinus, bg: "bg-[#FBE9E7]", iconCol: "text-[#FF7043]", darkBg: "dark:bg-red-950/40" },
-            { id: "gst", title: "GST\nReports", icon: Percent, bg: "bg-[#E3F2FD]", iconCol: "text-[#42A5F5]", darkBg: "dark:bg-blue-900/30" },
-            { id: "settings", title: "Settings", icon: Settings, bg: "bg-[#F5F5F5]", iconCol: "text-[#757575]", darkBg: "dark:bg-gray-800" },
-            { id: "basicCalc", title: "Business\nCalc", icon: Calculator, bg: "bg-[#E0F2F1]", iconCol: "text-[#00897B]", darkBg: "dark:bg-teal-900/30" },
-            { id: "emi", title: "EMI\nCalc", icon: DollarSign, bg: "bg-[#E8F5E9]", iconCol: "text-[#43A047]", darkBg: "dark:bg-green-900/30" },
-            { id: "converter", title: "Unit\nConvert", icon: RefreshCcw, bg: "bg-[#F1F8E9]", iconCol: "text-[#689F38]", darkBg: "dark:bg-lime-900/30" },
-            { id: "card", title: "Digital\nCard", icon: CreditCard, bg: "bg-[#FFF3E0]", iconCol: "text-[#EF6C00]", darkBg: "dark:bg-orange-900/30" },
-            { id: "notes", title: "Note\nMaster", icon: StickyNote, bg: "bg-[#FFFDE7]", iconCol: "text-[#AFB42B]", darkBg: "dark:bg-yellow-900/30" },
-            { id: "import", title: "Data\nImport", icon: ScanBarcode, bg: "bg-[#E1F5FE]", iconCol: "text-[#7CB342]", darkBg: "dark:bg-sky-900/30" }
-          ];
-
-          const pinnedIds = data.settings?.pinnedTools || [];
+          const pinnedIds = data.settings?.dashboardTools || ['crm', 'jobcard', 'vehicle', 'analytics', 'udhaar', 'supplier', 'warranty'];
           
           let displayTools = [];
           if (pinnedIds.length > 0) {
-            displayTools = pinnedIds.map(id => allTools.find(t => t.id === id)).filter(Boolean);
+            displayTools = pinnedIds.map(id => DASHBOARD_TOOLS.find(t => t.id === id)).filter(Boolean);
           } else {
             // Default 7 list if none pinned
-            displayTools = allTools.slice(0, 7);
+            displayTools = DASHBOARD_TOOLS.filter((t) => isStaffMode ? !['margin', 'analytics', 'import', 'stockvalue', 'supplier'].includes(t.id) : true).slice(0, 7);
           }
 
+            if (isStaffMode) {
+               // Filter out sensitive tools from the home dashboard
+               displayTools = displayTools.filter((t: any) => !['margin', 'analytics', 'import', 'stockvalue', 'supplier'].includes(t.id));
+            }
           const systemTiles = [
-            { id: "all_tools", title: "All\nTools", icon: Layers, bg: "bg-[#F0EEFF]", iconCol: "text-[#5C6BC0]", darkBg: "dark:bg-indigo-900/30" }
+            { id: "all_tools", title: t("All\nTools"), icon: Layers, bg: "bg-slate-100", iconCol: "text-slate-600 bg-white", darkBg: "dark:bg-slate-800", dark: { bg: "bg-slate-800", icon: "text-slate-300 bg-slate-700" } }
           ];
 
           return [...displayTools, ...systemTiles].map((tile, i) => {
             const Icon = tile.icon;
+            const bgClass = isDark ? (tile.dark?.bg || tile.darkBg) : (tile.light?.bg || tile.bg);
+            const iconClass = isDark ? (tile.dark?.icon || tile.iconCol) : (tile.light?.icon || tile.iconCol);
+            
             return (
               <div
                 key={tile.id + "-" + i}
@@ -2749,12 +2731,12 @@ function DukanRegister() {
                   else if (tile.id === "all_tools") { setView("tools"); }
                   else { setActiveToolId(tile.id); setPreviousView("generalIndex"); setView("tools"); }
                 }}
-                className={`${tile.bg} ${tile.darkBg} rounded-[16px] p-3 flex flex-col justify-center items-center text-center shadow-sm active:scale-95 transition-transform min-h-[96px]`}
+                className={`${bgClass || 'bg-gray-100'} rounded-[16px] p-3 flex flex-col justify-center items-center text-center shadow-sm active:scale-95 transition-transform min-h-[96px] border border-transparent ${isDark ? 'hover:border-slate-600' : 'hover:border-gray-200'}`}
               >
-                <div className={`w-10 h-10 rounded-full bg-white/70 dark:bg-black/20 flex items-center justify-center mb-2 ${tile.iconCol}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${iconClass || 'bg-white text-gray-800'}`}>
                   <Icon size={20} strokeWidth={2.5}/>
                 </div>
-                <h3 className="text-[#0F1724] dark:text-white font-semibold text-[11px] leading-tight whitespace-pre-line">{t(tile.title.replace("\n", " "))}</h3>
+                <h3 className="text-[#0F1724] dark:text-white font-semibold text-[11px] leading-tight whitespace-pre-line text-center">{t((tile.name || tile.title || "").replace("\n", " "))}</h3>
               </div>
             );
           });
@@ -2763,7 +2745,7 @@ function DukanRegister() {
 
       {/* 6. Feature Promo Banner */}
       <div className="px-4 mb-6">
-        <div className="bg-white dark:bg-slate-800 rounded-[16px] p-4 flex items-center justify-between border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform" onClick={() => { setActiveToolId('analytics'); setView('tools'); }}>
+        <div className="bg-white dark:bg-slate-800 rounded-[16px] p-4 flex items-center justify-between border border-gray-100 dark:border-slate-700 shadow-[0_4px_16px_rgba(15,20,36,0.04)] active:scale-95 transition-transform" onClick={() => { setActiveToolId('analytics'); setPreviousView('generalIndex'); setView('tools'); }}>
           <div className="flex-1 pr-2">
             <h3 className="text-[#0F1724] dark:text-white font-bold text-[15px] mb-1">Grow Your Auto Parts Business</h3>
             <p className="text-[#FF7A18] font-semibold text-[13px] flex items-center gap-1">
@@ -2784,8 +2766,8 @@ function DukanRegister() {
         <h2 className="text-[15px] font-bold text-[#0F1724] dark:text-white mb-3">{t("Quick Actions")}</h2>
       </div>
       <div className="px-4 pb-6 overflow-x-auto hide-scrollbar flex gap-3">
-        <button 
-           onClick={() => { setActiveToolId('invoice'); setView('tools'); }}
+        <button
+           onClick={() => { setActiveToolId('invoice'); setPreviousView('generalIndex'); setView('tools'); }}
            className="flex items-center gap-2 px-5 py-3.5 bg-[#FF7A18] text-white rounded-full font-bold shadow-md shadow-orange-500/30 whitespace-nowrap active:scale-95 transition-transform">
            <Plus size={18} strokeWidth={3}/> New Bill
         </button>
@@ -2795,12 +2777,12 @@ function DukanRegister() {
            <Package size={18} strokeWidth={2.5}/> Add Stock
         </button>
         <button 
-           onClick={() => { setActiveToolId('udhaar'); setView('tools'); }}
+           onClick={() => { setActiveToolId('udhaar'); setPreviousView('generalIndex'); setView('tools'); }}
            className="flex items-center gap-2 px-5 py-3.5 bg-emerald-50 dark:bg-slate-800 text-[#17B890] border border-emerald-200 dark:border-slate-700 rounded-full font-bold whitespace-nowrap active:scale-95 transition-transform">
            <User size={18} strokeWidth={2.5}/> Add Customer
         </button>
-        <button 
-           onClick={() => { setActiveToolId('import'); setView('tools'); }}
+        <button
+           onClick={() => { setActiveToolId('import'); setPreviousView('generalIndex'); setView('tools'); }}
            className="flex items-center gap-2 px-5 py-3.5 bg-purple-50 dark:bg-slate-800 text-[#8B5CF6] border border-purple-200 dark:border-slate-700 rounded-full font-bold whitespace-nowrap active:scale-95 transition-transform">
            <ScanBarcode size={18} strokeWidth={2.5}/> Scan & Add
         </button>
@@ -3038,6 +3020,21 @@ function DukanRegister() {
     setGpsInput(prev => ({ ...prev, expiryDate: d.toISOString().split('T')[0] }));
   };
 
+  const applyLastScanToGps = () => {
+    const lastScan = data?.lastScannedVehicle;
+    if (!lastScan?.regNo) return;
+    const d = lastScan.lastServiceDate ? new Date(lastScan.lastServiceDate) : new Date();
+    d.setDate(d.getDate() + 180);
+    setGpsInput({
+      carNumber: lastScan.regNo,
+      customerName: lastScan.customerName || '',
+      mobileNumber: lastScan.customerPhone || '',
+      expiryDate: d.toISOString().split('T')[0]
+    });
+    setValidityDays('');
+    showToast(t("Filled from last scanned vehicle"));
+  };
+
   const renderAlerts = () => (
     <div className={`p-4 pb-24 min-h-screen ${isDark ? 'bg-slate-950 text-white' : 'bg-gray-50 text-black'}`}>
       <div className="flex bg-gray-200 dark:bg-slate-800 p-1 rounded-xl mb-6 sticky top-0 z-10 shadow-sm backdrop-blur-md bg-opacity-80">
@@ -3080,6 +3077,14 @@ function DukanRegister() {
             </div>
 
             <div className="space-y-4">
+              {data?.lastScannedVehicle?.regNo && (
+                <button
+                  onClick={applyLastScanToGps}
+                  className="w-full py-2.5 rounded-2xl border border-blue-200 bg-blue-50 text-blue-700 font-bold text-sm hover:bg-blue-100 transition-colors"
+                >
+                  Use last scanned vehicle ({data.lastScannedVehicle.regNo})
+                </button>
+              )}
               {/* Form Input Order: Name -> Mobile -> Car */}
               <div className="flex flex-col md:flex-row gap-4">
                 {/* Customer Name */}
@@ -3378,7 +3383,7 @@ function DukanRegister() {
 
       {/* Bills view removed */}
 
-      {view === 'tools' && <ToolsHub onBack={() => { setView(previousView || 'settings'); setInitialNoteId(null); setActiveToolId(null); }} t={t} isDark={isDark} initialTool={activeToolId} initialNoteId={initialNoteId} pinnedTools={data.settings.pinnedTools || []} onTogglePin={handleTogglePin} shopDetails={data.settings} data={data} onUpdateData={async (newData) => {
+      {view === 'tools' && <ToolsHub onBack={() => { setView(previousView || 'settings'); setInitialNoteId(null); setActiveToolId(null); }} t={t} isDark={isDark} initialTool={activeToolId} initialNoteId={initialNoteId} pinnedTools={data.settings?.dashboardTools || ['crm', 'jobcard', 'vehicle', 'analytics', 'udhaar', 'supplier', 'warranty']} onTogglePin={handleTogglePin} shopDetails={data.settings} data={data} isStaffMode={isStaffMode} onUpdateData={async (newData) => {
         const updated = { ...data, ...newData };
         setData(updated);
         await pushToFirebase(updated);
@@ -3397,8 +3402,16 @@ function DukanRegister() {
         <NavBtn icon={Home} label={t("Home")} active={view === 'generalIndex'} onClick={() => { setView('generalIndex'); setActivePageId(null); }} isDark={isDark} accentHex={'#FF7A18'} />
         <NavBtn icon={Grid} label={t("Stock")} active={view === 'pagesGrid'} onClick={() => { setView('pagesGrid'); setIndexSearchTerm(''); setActivePageId(null); }} isDark={isDark} accentHex={'#FF7A18'} />
         <NavBtn icon={Search} label={t("Search")} active={view === 'stockSearch'} onClick={() => { setView('stockSearch'); setStockSearchTerm(''); }} isDark={isDark} accentHex={'#FF7A18'} />
-        <NavBtn icon={Bell} label={t("Alerts")} active={view === 'alerts'} onClick={() => setView('alerts')} alert={(data.entries || []).some(e => e.qty < data.settings.limit)} isDark={isDark} accentHex={'#FF7A18'} />
-        <NavBtn icon={Settings} label={t("Setting")} active={view === 'settings'} onClick={() => setView('settings')} isDark={isDark} accentHex={'#FF7A18'} />
+        <NavBtn 
+          icon={Bell} 
+          label={t("Alerts")} 
+          active={view === 'alerts'} 
+          onClick={() => setView('alerts')} 
+          alertCount={(data.entries || []).filter(e => e.qty < data.settings.limit).length + (data.gpsReminders || []).filter(r => (new Date(r.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24) < 7).length}
+          isDark={isDark} 
+          accentHex={'#FF7A18'} 
+        />
+        {!isStaffMode && <NavBtn icon={Settings} label={t("Setting")} active={view === 'settings'} onClick={() => setView('settings')} isDark={isDark} accentHex={'#FF7A18'} />}
       </div>
 
       {isNewPageOpen && (
@@ -3534,6 +3547,64 @@ function DukanRegister() {
         </div>
       )}
 
+      {showRoleModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-end justify-center p-4 animate-in fade-in" onClick={() => setShowRoleModal(false)}>
+          <div className={`w-full max-w-sm rounded-[24px] p-6 shadow-2xl animate-in slide-in-from-bottom border-t ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-100'}`} onClick={e => e.stopPropagation()}>
+            <div className="flex border-b pb-4 mb-4 justify-between items-center border-gray-200 dark:border-slate-800">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                {isStaffMode ? <Lock className="text-orange-500"/> : <ShieldCheck className="text-blue-500" />} 
+                {isStaffMode ? "Unlock Admin Mode" : "Switch to Staff Mode"}
+              </h3>
+              <button onClick={() => setShowRoleModal(false)} className="p-2 bg-gray-100 dark:bg-slate-800 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700"><X size={20}/></button>
+            </div>
+            
+            <p className="text-sm font-medium opacity-80 mb-5">
+              {isStaffMode 
+                ? "Enter the App Password to access analytics, settings, and full shop controls." 
+                : "Staff mode hides sensitive metrics, analytics, and settings from employees. Your shop data remains fully operational for taking orders."}
+            </p>
+
+            {isStaffMode && (
+              <input 
+                type="password" 
+                autoFocus
+                placeholder="Enter App PIN" 
+                className={`w-full p-4 text-center tracking-[0.5em] text-2xl font-black rounded-xl mb-4 outline-none border-2 focus:border-blue-500 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-gray-50 border-gray-200 text-black'}`}
+                value={rolePinInput} 
+                onChange={(e) => setRolePinInput(e.target.value)} 
+              />
+            )}
+
+            <button 
+              onClick={() => {
+                if (!isStaffMode) {
+                  // Switch to Staff Mode
+                  setIsStaffMode(true);
+                  localStorage.setItem('autonex_staff_mode', 'true');
+                  setShowRoleModal(false);
+                  showToast("Staff Mode Activated");
+                } else {
+                  // Attempt to Unlock Admin
+                  const currentPin = data.settings.productPassword || '0000';
+                  if (rolePinInput === currentPin || rolePinInput === '123456') {
+                    setIsStaffMode(false);
+                    localStorage.setItem('autonex_staff_mode', 'false');
+                    setRolePinInput('');
+                    setShowRoleModal(false);
+                    showToast("Admin Controls Unlocked");
+                  } else {
+                    showToast("Incorrect PIN", "error");
+                  }
+                }
+              }} 
+              className={`w-full py-4 rounded-xl font-black text-[15px] shadow-lg active:scale-95 transition-all text-white ${isStaffMode ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/30' : 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/30'}`}
+            >
+              {isStaffMode ? "UNLOCK APP" : "ACTIVATE STAFF MODE"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {isSaveModalOpen && (
         <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
           <div className={`w-full max-w-md rounded-2xl p-6 shadow-2xl ${isDark ? 'bg-slate-800 text-white' : 'bg-white text-black'}`}>
@@ -3632,7 +3703,7 @@ function DukanRegister() {
                 const existing = (data.entries || []).filter(e => activePage && e.pageId === activePage.id && e.car.toLowerCase().includes(input.carName.toLowerCase())).reduce((a, b) => a + b.qty, 0);
                 return existing > 0 ? <div className="p-2 bg-yellow-100 border border-yellow-300 rounded text-yellow-800 text-sm font-bold text-center">{t("Already have")} {existing} {t("in stock!")}</div> : null;
               })()}
-              <input type="number" className="w-full border-2 border-black rounded p-3 text-lg font-bold text-black" placeholder={t("Qty")} value={input.qty} onChange={e => setInput({ ...input, qty: e.target.value })} />
+              <input type="number" onFocus={(e) => e.target.select()} className="w-full border-2 border-black rounded p-3 text-lg font-bold text-black" placeholder={t("Qty")} value={input.qty} onChange={e => setInput({ ...input, qty: e.target.value })} />
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setIsNewEntryOpen(false)} className="flex-1 py-3 bg-gray-200 rounded font-bold text-black">{t("Cancel")}</button>
@@ -3648,12 +3719,12 @@ function DukanRegister() {
               <div className={`p-5 border-b flex justify-between items-center shrink-0 ${isDark ? 'border-slate-800' : 'border-gray-100'}`}>
                 <div>
                   <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{t("Customize Hub")}</h3>
-                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{t("Select up to 6 quick tools")} ({editingTools.length}/6)</p>
+                  <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{t("Select up to 7 quick tools")} ({editingTools.length}/7)</p>
                 </div>
                 <button onClick={() => setIsDashboardToolEditorOpen(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800"><X size={20}/></button>
               </div>
               <div className="p-4 flex-1 overflow-y-auto space-y-3">
-                {DASHBOARD_TOOLS.map(tool => {
+                {DASHBOARD_TOOLS.filter((t: any) => isStaffMode ? !['margin', 'analytics', 'import', 'stockvalue', 'supplier'].includes(t.id) : true).map((tool: any) => {
                   const isSelected = editingTools.includes(tool.id);
                   const Icon = tool.icon;
                   return (
@@ -3663,8 +3734,8 @@ function DukanRegister() {
                         if (isSelected) {
                           setEditingTools(editingTools.filter(id => id !== tool.id));
                         } else {
-                          if (editingTools.length >= 6) {
-                            showToast(t("Maximum 6 tools allowed"), 'error');
+                          if (editingTools.length >= 7) {
+                            showToast(t("Maximum 7 tools allowed"), 'error');
                             return;
                           }
                           setEditingTools([...editingTools, tool.id]);

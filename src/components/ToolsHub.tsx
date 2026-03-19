@@ -1,6 +1,6 @@
 import InvoicePro from './tools/InvoicePro';
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Calculator, FileText, Percent, DollarSign, RefreshCcw, Activity, Pin, StickyNote, CreditCard, Languages, Share2, Plus, Trash2, Copy, BarChart2, Shield, UploadCloud } from 'lucide-react';
+import { ArrowLeft, Calculator, FileText, Percent, DollarSign, RefreshCcw, Activity, Pin, StickyNote, CreditCard, Languages, Share2, Plus, Trash2, Copy, BarChart2, Shield, UploadCloud, Users } from 'lucide-react';
 import { FloatingNoteMenu } from './FloatingNoteMenu';
 import VoiceInput from './VoiceInput';
 import DOMPurify from 'dompurify';
@@ -16,9 +16,13 @@ import NoteMaster from './tools/NoteMaster';
 import QuotationMaker from './tools/QuotationMaker';
 import { SupplierLedger } from './tools/SupplierLedger';
 import { CustomerUdhaar } from './tools/CustomerUdhaar';
+import UniversalTranslator from './tools/UniversalTranslator';
 import { AnalyticsDashboard } from './tools/AnalyticsDashboard';
 import { WarrantyTracking } from './tools/WarrantyTracking';
 import { DataImportExport } from './tools/DataImportExport';
+import { VehicleMaster } from './tools/VehicleMaster';
+import { ServiceJobCards } from './tools/ServiceJobCards';
+import { CustomerCRM } from './tools/CustomerCRM';
 
 // Assuming basic translate helper is available, or passed as prop. 
 // The original code used `translateWithGoogle` global or imported? 
@@ -50,11 +54,11 @@ interface ToolsHubProps {
     pinnedTools?: string[];
     onTogglePin?: (toolId: string) => void;
     shopDetails: ShopDetails;
-    data: AppData;
+    data: AppData; isStaffMode?: boolean;
     onUpdateData?: (newData: Partial<AppData>) => void;
 }
 
-const ToolsHub: React.FC<ToolsHubProps> = ({ onBack, t, isDark, initialTool = null, initialNoteId = null, pinnedTools, onTogglePin, shopDetails, data, onUpdateData }) => {
+const ToolsHub: React.FC<ToolsHubProps> = ({ onBack, t, isDark, initialTool = null, initialNoteId = null, pinnedTools, onTogglePin, shopDetails, data, onUpdateData, isStaffMode }) => {
     const [activeTool, setActiveTool] = useState<string | null>(initialTool);
     const openedDirectlyRef = useRef(!!initialTool);
 
@@ -87,9 +91,9 @@ const ToolsHub: React.FC<ToolsHubProps> = ({ onBack, t, isDark, initialTool = nu
     useEffect(() => {
         try {
             // Safety check for safe eval
-            if (/^[0-9+\-*/.() ]+$/.test(calcExpression)) {
-                // eslint-disable-next-line no-eval
-                const result = eval(calcExpression);
+            if (/^[0-9+\-*\/.() ]+$/.test(calcExpression)) {
+                // eslint-disable-next-line no-new-func
+                const result = new Function('return ' + calcExpression)();
                 if (isFinite(result) && !isNaN(result)) {
                     const formatted = Number(result.toFixed(6)).toString();
                     setCalcResult(formatted);
@@ -126,6 +130,9 @@ const ToolsHub: React.FC<ToolsHubProps> = ({ onBack, t, isDark, initialTool = nu
         { id: 'analytics', name: 'Analytics', icon: <BarChart2 size={24} />, color: 'bg-indigo-100 text-indigo-600', desc: 'Sales & Trends' },
         { id: 'warranty', name: 'Warranties', icon: <Shield size={24} />, color: 'bg-emerald-100 text-emerald-600', desc: 'Track Expirations' },
         { id: 'import', name: 'Data Import', icon: <UploadCloud size={24} />, color: 'bg-blue-100 text-blue-600', desc: 'Migrate CSV/Excel' },
+        { id: 'jobcard', name: 'Job Cards', icon: <FileText size={24} />, color: 'bg-orange-100 text-orange-600', desc: 'Service & Repairs' },
+        { id: 'vehicle', name: 'Vehicle Master', icon: <Activity size={24} />, color: 'bg-blue-100 text-blue-600', desc: 'Customer Vehicles' },
+        { id: 'crm', name: 'Customer CRM', icon: <Users size={24} />, color: 'bg-blue-100 text-blue-600', desc: 'Client Directory' },
     ];
 
 // Invoice Logic
@@ -175,12 +182,15 @@ const ToolsHub: React.FC<ToolsHubProps> = ({ onBack, t, isDark, initialTool = nu
             case 'stockvalue': return <StockValueCalculator t={t} isDark={isDark} onBack={handleBackFromTool} />;
             case 'card': return <DigitalBusinessCard shopDetails={shopDetails} t={t} isDark={isDark} onBack={handleBackFromTool} />;
             case 'notes': return <NoteMaster t={t} isDark={isDark} initialNoteId={initialNoteId} onBack={handleBackFromTool} />;
-            case 'quotation': return <QuotationMaker t={t} shopDetails={shopDetails} data={data} isDark={isDark} onBack={handleBackFromTool} />;
+            case 'quotation': return <QuotationMaker t={t} shopDetails={shopDetails} data={data} isDark={isDark} onBack={handleBackFromTool} onUpdateData={onUpdateData} />;
             case 'supplier': return <SupplierLedger isDark={isDark} t={t} onBack={handleBackFromTool} data={data} onUpdateData={onUpdateData} />;
             case 'udhaar': return <CustomerUdhaar isDark={isDark} t={t} onBack={handleBackFromTool} data={data} onUpdateData={onUpdateData} />;
-            case 'analytics': return <AnalyticsDashboard isDark={isDark} t={t} onBack={handleBackFromTool} />;
+            case 'analytics': return <AnalyticsDashboard isDark={isDark} t={t} onBack={handleBackFromTool} data={data} />;
             case 'warranty': return <WarrantyTracking isDark={isDark} t={t} onBack={handleBackFromTool} data={data} onUpdateData={onUpdateData} />;
-            case 'import': return <DataImportExport isDark={isDark} t={t} onBack={handleBackFromTool} />;
+              case 'import': return <DataImportExport isDark={isDark} t={t} onBack={handleBackFromTool} data={data} onUpdateData={onUpdateData} />;
+            case 'vehicle': return <VehicleMaster isDark={isDark} t={t} onBack={handleBackFromTool} data={data} onUpdateData={onUpdateData} />;
+            case 'jobcard': return <ServiceJobCards isDark={isDark} t={t} onBack={handleBackFromTool} data={data} onUpdateData={onUpdateData} />;
+            case 'crm': return <CustomerCRM isDark={isDark} t={t} onBack={handleBackFromTool} data={data} onUpdateData={onUpdateData} />;
 
             case 'basicCalc': {
                 const handleCalcInput = (value: string) => {
@@ -314,7 +324,7 @@ const ToolsHub: React.FC<ToolsHubProps> = ({ onBack, t, isDark, initialTool = nu
                 );
             }
             case 'invoice':
-                return <InvoicePro onBack={handleBackFromTool} shopName={shopDetails.shopName} t={t} data={data} />;
+                return <InvoicePro onBack={handleBackFromTool} shopName={shopDetails.shopName} t={t} data={data} onUpdateData={onUpdateData} isDark={isDark} />;
             default: return null;
         }
     };
@@ -323,7 +333,7 @@ const ToolsHub: React.FC<ToolsHubProps> = ({ onBack, t, isDark, initialTool = nu
         <div className={`fixed inset-0 z-[60] overflow-y-auto ${isDark ? 'bg-slate-950 text-white' : 'bg-gray-50 text-black'}`}>{!activeTool && (<div className={`sticky top-0 p-4 border-b flex items-center gap-3 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}><button onClick={handleBackFromTool} className="p-2 rounded-full hover:bg-gray-100/10"><ArrowLeft size={24} /></button><h2 className="text-xl font-bold flex items-center gap-2">{t('Business Tools')}</h2></div>)}<div className="relative p-0 m-0 max-w-md mx-auto h-[calc(100vh-73px)] h-full">
                 {!activeTool && (
                     <div className="p-4 grid grid-cols-2 gap-3 mt-2">
-                        {tools.map(tool => {
+                          {tools.filter(t => isStaffMode ? !['margin', 'analytics', 'import', 'stockvalue', 'supplier'].includes(t.id) : true).map(tool => {
                             const isPinned = pinnedTools.includes(tool.id);
                             return (
                                 <div
@@ -348,7 +358,8 @@ const ToolsHub: React.FC<ToolsHubProps> = ({ onBack, t, isDark, initialTool = nu
                         </div>
                     </div>
                 )}
-                {activeTool && <div className="animate-in slide-in-from-right duration-300 h-full w-full absolute top-0 left-0 bg-white dark:bg-slate-900">{renderToolContent()}</div>}
+                {activeTool && <div className="animate-in slide-in-from-right duration-300 h-full w-full absolute top-0 left-0 bg-white dark:bg-slate-900">{activeTool === 'translator' && <UniversalTranslator isDark={isDark} t={t} onBack={() => setActiveTool(null)} />}
+            {renderToolContent()}</div>}
             </div>
         </div>
     );

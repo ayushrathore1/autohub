@@ -31,14 +31,33 @@ export interface PerformanceSettings {
 }
 
 export interface Settings {
+    dashboardTools?: string[];
+    udhaarDue?: number;
     shopName?: string;
     shopAddress?: string;
     shopCity?: string;
     shopPincode?: string;
     gstNumber?: string;
     shopPhone?: string;
+    businessAddress?: string;
+    invoicePrefix?: string;
+    defaultGST?: number | string;
+    showBankOnInvoice?: boolean;
+    bankAccountName?: string;
+    bankAccountNumber?: string;
+    bankIFSC?: string;
     theme?: string;
+    accentColor?: string;
     fontSize?: string;
+    shakeToSearch?: boolean;
+    pinnedTools?: string[];
+    fuzzySearch?: boolean;
+    voiceAI?: boolean;
+    aiPredictions?: boolean;
+    widgets?: {
+        aiInsights?: boolean;
+        predictions?: boolean;
+    } | boolean;
     soundEffects?: boolean;
     highContrast?: boolean;
     reducedMotion?: boolean;
@@ -56,6 +75,25 @@ export interface AppData {
     entries?: any[]; // Todo: Define Entry type
     bills?: any[];   // Todo: Define Bill type
     pages?: any[];   // Used in QuotationMaker
+    scannedVehicles?: Array<{
+        id: number;
+        regNo: string;
+        customerName?: string;
+        customerPhone?: string;
+        scannedAt: string;
+    }>;
+    lastScannedVehicle?: {
+        regNo: string;
+        make?: string;
+        model?: string;
+        customerName?: string;
+        customerPhone?: string;
+        year?: string;
+        mileage?: string;
+        notes?: string;
+        lastServiceDate?: string;
+        scannedAt?: string;
+    };
     [key: string]: any;
 }
 
