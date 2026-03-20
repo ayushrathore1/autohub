@@ -30,5 +30,5 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/autohub')
 
 // Start Server
 app.listen(() => {
-  console.log('Backend server running.');
+  console.log(`Backend server running. Started at: ${new Date().toISOString()}`);
 });
