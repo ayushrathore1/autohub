@@ -1,3 +1,10 @@
+// Log uncaught exceptions and unhandled promise rejections
+process.on('uncaughtException', err => {
+  console.error('Uncaught Exception:', err);
+});
+process.on('unhandledRejection', err => {
+  console.error('Unhandled Rejection:', err);
+});
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
@@ -29,6 +36,11 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/autohub')
 .catch(err => console.error('MongoDB connection error:', err));
 
 // Start Server
-app.listen(() => {
-  console.log(`Backend server running. Started at: ${new Date().toISOString()}`);
+const PORT = process.env.PORT;
+if (!PORT) {
+  console.error('PORT environment variable is not set.');
+  process.exit(1);
+}
+app.listen(PORT, () => {
+  console.log(`Backend server running. Started at: ${new Date().toISOString()} on port ${PORT}`);
 });
