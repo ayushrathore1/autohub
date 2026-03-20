@@ -1530,7 +1530,7 @@ function DukanRegister() {
     const token = localStorage.getItem('autohub_token');
     if (token) {
       // Verify token
-      fetch('http://localhost:5000/api/auth/verify', {
+      fetch('https://moccasin-hornet-496618.hostingersite.com/api/auth/verify', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())
@@ -1569,7 +1569,7 @@ function DukanRegister() {
     window.addEventListener('offline', handleOffline);
 
     // Initial data fetch
-    fetch('http://localhost:5000/api/data/sync', {
+    fetch('https://moccasin-hornet-496618.hostingersite.com/api/data/sync', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('autohub_token')}` }
     })
     .then(res => res.json())
@@ -1653,7 +1653,7 @@ function DukanRegister() {
     if (!email || !password) { showToast("Please fill details", "error"); return; }
     try {
       const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
-      const res = await fetch(`http://localhost:5000${endpoint}`, {
+      const res = await fetch(`https://moccasin-hornet-496618.hostingersite.com${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1693,11 +1693,12 @@ function DukanRegister() {
     // Also update Dexie backup immediately so we never lose data
     try { await syncEngine.saveBackup(payload); } catch { /* noop */ }
 
+
     // Try to write to backend API with retries
     const tryWrite = async (attempts = 3) => {
       for (let i = 1; i <= attempts; i++) {
         try {
-          const res = await fetch('http://localhost:5000/api/data/sync', {
+          const res = await fetch('https://moccasin-hornet-496618.hostingersite.com/api/data/sync', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1741,7 +1742,7 @@ function DukanRegister() {
     if (!user) return;
     try {
       await syncEngine.processPendingTransfers(async (payload) => {
-        const res = await fetch('http://localhost:5000/api/data/sync', {
+        const res = await fetch('https://moccasin-hornet-496618.hostingersite.com/api/data/sync', {
            method: 'POST',
            headers: {
              'Content-Type': 'application/json',
@@ -1870,7 +1871,7 @@ function DukanRegister() {
       canvas.width = Math.min(MAX_WIDTH, imgBitmap.width);
       canvas.height = Math.round((imgBitmap.height * canvas.width) / imgBitmap.width);
       ctx.drawImage(imgBitmap, 0, 0, canvas.width, canvas.height);
-      return await new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('Compression failed')), 'image/jpeg', 0.75));
+      return await new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('Compression failed'))), 'image/jpeg', 0.75));
     })();
   };
   /* eslint-disable-next-line no-unused-vars */
@@ -1948,13 +1949,13 @@ function DukanRegister() {
           // We don't have progress tracking with simple fetch natively easily without XHR, so just update it immediately
           setData(prev => ({ ...prev, bills: prev.bills.map(b => b.id === timestamp ? { ...b, progress: 99 } : b) }));
           
-          const res = await fetch('http://localhost:5000/api/upload/bill', {
+            const res = await fetch('https://moccasin-hornet-496618.hostingersite.com/api/upload/bill', {
              method: 'POST',
              headers: {
-                 'Authorization': `Bearer ${localStorage.getItem('autohub_token')}`
+               'Authorization': `Bearer ${localStorage.getItem('autohub_token')}`
              },
              body: formData
-          });
+            });
           
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Upload failed');
@@ -3017,7 +3018,14 @@ function DukanRegister() {
     if (!days) return;
     const d = new Date();
     d.setDate(d.getDate() + parseInt(days));
-    setGpsInput(prev => ({ ...prev, expiryDate: d.toISOString().split('T')[0] }));
+    setGpsInput({
+      carNumber: gpsInput.carNumber,
+      customerName: gpsInput.customerName || '',
+      mobileNumber: gpsInput.mobileNumber || '',
+      expiryDate: d.toISOString().split('T')[0]
+    });
+    setValidityDays('');
+    showToast(t("Filled from last scanned vehicle"));
   };
 
   const applyLastScanToGps = () => {
@@ -3108,7 +3116,7 @@ function DukanRegister() {
 
               {/* Validity Selection */}
               <div className={`p-4 rounded-2xl border-2 ${isDark ? 'bg-slate-900/30 border-slate-700' : 'bg-blue-50/50 border-blue-100'}`}>
-                <label className="text-xs font-black block mb-3 uppercase tracking-wide text-blue-500 flex items-center gap-2"><Calendar size={14} /> {t("Recharge Validity")}</label>
+                <label className="text-xs font-black block mb-3 uppercase tracking-wider text-blue-500 flex items-center gap-2"><Calendar size={14} /> {t("Recharge Validity")}</label>
                 <div className="flex flex-col sm:flex-row gap-4 items-center">
                   <div className="w-full sm:flex-1 space-y-1">
                     <label className="text-[10px] font-bold opacity-50 ml-1">DAYS</label>
@@ -3143,12 +3151,11 @@ function DukanRegister() {
           </div>
 
           <div className="space-y-4">
-            {(data.gpsReminders || [])
-              .filter(r =>
-                r.carNumber.toLowerCase().includes(gpsSearchTerm.toLowerCase()) ||
-                r.customerName.toLowerCase().includes(gpsSearchTerm.toLowerCase()) ||
-                r.mobileNumber.includes(gpsSearchTerm)
-              )
+            {(data.gpsReminders || []).filter(r =>
+              r.carNumber.toLowerCase().includes(gpsSearchTerm.toLowerCase()) ||
+              r.customerName.toLowerCase().includes(gpsSearchTerm.toLowerCase()) ||
+              r.mobileNumber.includes(gpsSearchTerm)
+            )
               .sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime())
               .map(reminder => {
                 const daysLeft = Math.ceil((new Date(reminder.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -3179,7 +3186,7 @@ function DukanRegister() {
                           <p className={`text-sm font-black flex items-center justify-end gap-1.5 ${isExpired ? 'text-red-600' : (isUrgent ? 'text-yellow-600' : 'text-green-600')}`}>
                             <Calendar size={14} strokeWidth={3} /> {new Date(reminder.expiryDate).toLocaleDateString()}
                           </p>
-                          <p className={`text-[10px] font-bold uppercase tracking-wide opacity-70 ${isExpired ? 'text-red-500' : 'text-slate-500'}`}>
+                          <p className={`text-[10px] font-bold uppercase tracking-wider opacity-70 ${isExpired ? 'text-red-500' : 'text-slate-500'}`}>
                             {isExpired ? `${Math.abs(daysLeft)} days overdue` : `${daysLeft} days left`}
                           </p>
                           <div className="mt-2 text-blue-500 text-[10px] font-bold flex items-center justify-end gap-1 group-open:rotate-180 transition-transform origin-center">
@@ -3721,7 +3728,7 @@ function DukanRegister() {
                   <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{t("Customize Hub")}</h3>
                   <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{t("Select up to 7 quick tools")} ({editingTools.length}/7)</p>
                 </div>
-                <button onClick={() => setIsDashboardToolEditorOpen(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800"><X size={20}/></button>
+                <button onClick={() => setIsDashboardToolEditorOpen(false)} className="p-2 rounded-full hover:bg-gray-100/10"><X size={20}/></button>
               </div>
               <div className="p-4 flex-1 overflow-y-auto space-y-3">
                 {DASHBOARD_TOOLS.filter((t: any) => isStaffMode ? !['margin', 'analytics', 'import', 'stockvalue', 'supplier'].includes(t.id) : true).map((tool: any) => {
